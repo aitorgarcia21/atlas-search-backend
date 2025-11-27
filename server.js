@@ -656,56 +656,40 @@ app.post('/ask', async (req, res) => {
     const year = new Date().getFullYear();
     const b = await getBrowser();
     
-    // PHASE 1: Recherche multi-requêtes
+    // PHASE 1: Recherche (une seule requête comme /search)
     console.log('🔍 Phase 1: Recherche...');
-    const queries = [
-      `${question} ${year}`,
-      `${question} fiscalité ${year}`,
-      `${question} tax rate ${year}`,
-      `${question} impôt ${year}`,
-    ];
+    const fullQuery = `${question} ${year}`;
     
-    const allResults = [];
-    for (const q of queries) {
-      const page = await b.newPage();
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-      
-      try {
-        // Même code que /search qui fonctionne
-        await page.setViewport({ width: 1280, height: 800 });
-        const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(q)}&t=h_&ia=web`;
-        await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-        await page.waitForSelector('[data-testid="result"]', { timeout: 15000 }).catch(() => {});
-        await new Promise(r => setTimeout(r, 2000));
-        
-        const results = await page.evaluate(() => {
-          const items = [];
-          document.querySelectorAll('[data-testid="result"]').forEach((el) => {
-            const link = el.querySelector('a[data-testid="result-title-a"]');
-            const snippet = el.querySelector('[data-result="snippet"]');
-            if (link?.href?.startsWith('http')) {
-              items.push({
-                title: link.textContent || '',
-                url: link.href,
-                snippet: snippet?.textContent || '',
-                source: new URL(link.href).hostname.replace('www.', '')
-              });
-            }
+    const page = await b.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1280, height: 800 });
+    
+    const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(fullQuery)}&t=h_&ia=web`;
+    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+    await page.waitForSelector('[data-testid="result"]', { timeout: 15000 }).catch(() => {});
+    await new Promise(r => setTimeout(r, 2000));
+    
+    const allResults = await page.evaluate(() => {
+      const items = [];
+      document.querySelectorAll('[data-testid="result"]').forEach((el) => {
+        const link = el.querySelector('a[data-testid="result-title-a"]');
+        const snippet = el.querySelector('[data-result="snippet"]');
+        if (link?.href?.startsWith('http')) {
+          items.push({
+            title: link.textContent || '',
+            url: link.href,
+            snippet: snippet?.textContent || '',
+            source: new URL(link.href).hostname.replace('www.', '')
           });
-          return items;
-        });
-        
-        console.log(`   🔍 "${q.substring(0,30)}..." → ${results.length} résultats`);
-        allResults.push(...results);
-      } catch (e) {
-        console.log('   ⚠️', e.message);
-      }
-      await page.close();
-    }
+        }
+      });
+      return items;
+    });
+    await page.close();
     
     // Filtrer whitelist et dédupliquer
     const filtered = filterResults(allResults);
-    const unique = Array.from(new Map(filtered.map(r => [r.url, r])).values()).slice(0, 8);
+    const unique = filtered.slice(0, 8);
     console.log(`   📊 ${allResults.length} bruts → ${filtered.length} whitelist → ${unique.length} uniques`);
     
     // PHASE 2: Extraction contenu
