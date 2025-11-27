@@ -57,13 +57,23 @@ app.get('/check/:domain', (req, res) => {
 
 // Web Search
 app.post('/search', async (req, res) => {
-  const { query, maxResults = 10 } = req.body;
+  const { query, maxResults = 10, forceDate = true, countries = [] } = req.body;
+  
+  // Ajouter la date du jour pour forcer les résultats récents
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.toLocaleString('fr-FR', { month: 'long' });
+  const dateQuery = forceDate ? ` ${year}` : '';
+  
+  // Multi-pays : si plusieurs pays, on les ajoute à la requête
+  const countryQuery = countries.length > 0 ? ` ${countries.join(' OR ')}` : '';
   
   if (!query) {
     return res.status(400).json({ error: 'Query required' });
   }
   
-  console.log('🔍 Searching:', query);
+  const fullQuery = query + dateQuery + countryQuery;
+  console.log('🔍 Searching:', fullQuery, `(date: ${year}, countries: ${countries.length || 'all'})`);
   
   try {
     const b = await getBrowser();
@@ -73,7 +83,7 @@ app.post('/search', async (req, res) => {
     await page.setViewport({ width: 1280, height: 800 });
     
     // DuckDuckGo Search (more permissive)
-    const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`;
+    const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(fullQuery)}&t=h_&ia=web`;
     await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
     
     // Wait for results to load
@@ -195,6 +205,90 @@ app.post('/extract', async (req, res) => {
     
   } catch (error) {
     console.error('❌ Extract error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// MULTI-COUNTRY PARALLEL SEARCH
+// ============================================================================
+
+app.post('/search-multi', async (req, res) => {
+  const { query, countries = [], maxResultsPerCountry = 5 } = req.body;
+  
+  if (!query) {
+    return res.status(400).json({ error: 'Query required' });
+  }
+  
+  if (!countries.length) {
+    return res.status(400).json({ error: 'Countries array required' });
+  }
+  
+  const year = new Date().getFullYear();
+  console.log(`🌍 Multi-country search: "${query}" in ${countries.length} countries (${year})`);
+  
+  try {
+    // Recherche parallèle pour chaque pays
+    const searchPromises = countries.map(async (country) => {
+      const countryQuery = `${query} ${country} ${year}`;
+      
+      const b = await getBrowser();
+      const page = await b.newPage();
+      
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+      
+      const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(countryQuery)}&t=h_&ia=web`;
+      await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+      
+      await page.waitForSelector('[data-testid="result"]', { timeout: 10000 }).catch(() => {});
+      await new Promise(r => setTimeout(r, 1500));
+      
+      const results = await page.evaluate(() => {
+        const items = [];
+        document.querySelectorAll('[data-testid="result"]').forEach((el) => {
+          const link = el.querySelector('a[href]');
+          const title = el.querySelector('h2');
+          const snippet = el.querySelector('[data-result="snippet"]');
+          
+          if (link && title) {
+            items.push({
+              title: title.textContent?.trim() || '',
+              url: link.href,
+              snippet: snippet?.textContent?.trim() || '',
+            });
+          }
+        });
+        return items;
+      });
+      
+      await page.close();
+      
+      // Filtrer par whitelist
+      const filtered = filterResults(results).slice(0, maxResultsPerCountry);
+      
+      return {
+        country,
+        results: filtered.map(r => ({ ...r, country })),
+        count: filtered.length
+      };
+    });
+    
+    const allResults = await Promise.all(searchPromises);
+    
+    // Agréger les résultats
+    const aggregated = {
+      query,
+      year,
+      countries: allResults,
+      totalResults: allResults.reduce((sum, c) => sum + c.count, 0),
+      searchedAt: new Date().toISOString()
+    };
+    
+    console.log(`✅ Multi-search complete: ${aggregated.totalResults} results from ${countries.length} countries`);
+    res.json(aggregated);
+    
+  } catch (error) {
+    console.error('❌ Multi-search error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
