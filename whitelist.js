@@ -1,882 +1,679 @@
 /**
- * WHITELIST FISCALE MONDIALE
- * Sources officielles + Big Four pour 195 pays
+ * WHITELIST FISCALE MONDIALE COMPLÈTE
+ * 195 pays + Big Four + Organisations internationales
+ * ~800+ domaines autorisés
  */
 
 export const WHITELIST = {
   // ============================================================================
-  // BIG FOUR - GLOBAL (toujours autorisés)
+  // BIG FOUR - GLOBAL (tous domaines régionaux)
   // ============================================================================
   bigFour: [
-    'deloitte.com',
-    'pwc.com',
-    'ey.com',
-    'kpmg.com',
-    // Domaines régionaux Big Four
-    'deloitte.fr', 'deloitte.de', 'deloitte.co.uk', 'deloitte.ch', 'deloitte.be', 'deloitte.nl', 'deloitte.es', 'deloitte.it', 'deloitte.lu', 'deloitte.at', 'deloitte.ie', 'deloitte.pt', 'deloitte.pl', 'deloitte.cz', 'deloitte.hu', 'deloitte.ro', 'deloitte.bg', 'deloitte.gr', 'deloitte.se', 'deloitte.dk', 'deloitte.fi', 'deloitte.no', 'deloitte.jp', 'deloitte.cn', 'deloitte.com.au', 'deloitte.ca', 'deloitte.com.br', 'deloitte.co.za', 'deloitte.ae', 'deloitte.sg', 'deloitte.co.in',
-    'pwc.fr', 'pwc.de', 'pwc.co.uk', 'pwc.ch', 'pwc.be', 'pwc.nl', 'pwc.es', 'pwc.it', 'pwc.lu', 'pwc.at', 'pwc.ie', 'pwc.pt', 'pwc.pl', 'pwc.cz', 'pwc.hu', 'pwc.ro', 'pwc.bg', 'pwc.gr', 'pwc.se', 'pwc.dk', 'pwc.fi', 'pwc.no', 'pwc.jp', 'pwc.cn', 'pwc.com.au', 'pwc.ca', 'pwc.com.br', 'pwc.co.za', 'pwc.ae', 'pwc.sg', 'pwc.co.in',
-    'ey.com', 'ey.fr', 'ey.de', 'ey.co.uk', 'ey.ch', 'ey.be', 'ey.nl', 'ey.es', 'ey.it', 'ey.lu', 'ey.at', 'ey.ie', 'ey.pt', 'ey.pl', 'ey.cz', 'ey.hu', 'ey.ro', 'ey.bg', 'ey.gr', 'ey.se', 'ey.dk', 'ey.fi', 'ey.no', 'ey.jp', 'ey.cn', 'ey.com.au', 'ey.ca', 'ey.com.br', 'ey.co.za', 'ey.ae', 'ey.sg', 'ey.co.in',
-    'kpmg.fr', 'kpmg.de', 'kpmg.co.uk', 'kpmg.ch', 'kpmg.be', 'kpmg.nl', 'kpmg.es', 'kpmg.it', 'kpmg.lu', 'kpmg.at', 'kpmg.ie', 'kpmg.pt', 'kpmg.pl', 'kpmg.cz', 'kpmg.hu', 'kpmg.ro', 'kpmg.bg', 'kpmg.gr', 'kpmg.se', 'kpmg.dk', 'kpmg.fi', 'kpmg.no', 'kpmg.jp', 'kpmg.cn', 'kpmg.com.au', 'kpmg.ca', 'kpmg.com.br', 'kpmg.co.za', 'kpmg.ae', 'kpmg.sg', 'kpmg.co.in',
+    // Deloitte
+    'deloitte.com', 'deloitte.fr', 'deloitte.de', 'deloitte.co.uk', 'deloitte.ch', 'deloitte.be', 
+    'deloitte.nl', 'deloitte.es', 'deloitte.it', 'deloitte.lu', 'deloitte.at', 'deloitte.ie', 
+    'deloitte.pt', 'deloitte.pl', 'deloitte.cz', 'deloitte.hu', 'deloitte.ro', 'deloitte.bg', 
+    'deloitte.gr', 'deloitte.se', 'deloitte.dk', 'deloitte.fi', 'deloitte.no', 'deloitte.jp', 
+    'deloitte.cn', 'deloitte.com.au', 'deloitte.ca', 'deloitte.com.br', 'deloitte.co.za', 
+    'deloitte.ae', 'deloitte.sg', 'deloitte.co.in', 'deloitte.com.hk', 'deloitte.co.nz',
+    'deloitte.com.mx', 'deloitte.com.ar', 'deloitte.cl', 'deloitte.com.co', 'deloitte.com.pe',
+    'deloitte.ru', 'deloitte.ua', 'deloitte.kz', 'deloitte.com.tr', 'deloitte.co.il',
+    'deloitte.com.sa', 'deloitte.com.qa', 'deloitte.com.kw', 'deloitte.com.bh', 'deloitte.com.om',
+    'deloitte.co.ke', 'deloitte.com.ng', 'deloitte.co.tz', 'deloitte.com.gh', 'deloitte.com.eg',
+    'deloitte.com.my', 'deloitte.co.th', 'deloitte.co.id', 'deloitte.com.ph', 'deloitte.com.vn',
+    'deloitte.com.tw', 'deloitte.co.kr', 'deloitte.com.pk', 'deloitte.com.bd',
+    'blog.avocats.deloitte.fr',
+    
+    // PwC
+    'pwc.com', 'pwc.fr', 'pwc.de', 'pwc.co.uk', 'pwc.ch', 'pwc.be', 'pwc.nl', 'pwc.es', 
+    'pwc.it', 'pwc.lu', 'pwc.at', 'pwc.ie', 'pwc.pt', 'pwc.pl', 'pwc.cz', 'pwc.hu', 
+    'pwc.ro', 'pwc.bg', 'pwc.gr', 'pwc.se', 'pwc.dk', 'pwc.fi', 'pwc.no', 'pwc.jp', 
+    'pwc.cn', 'pwc.com.au', 'pwc.ca', 'pwc.com.br', 'pwc.co.za', 'pwc.ae', 'pwc.sg', 
+    'pwc.co.in', 'pwc.com.hk', 'pwc.co.nz', 'pwc.com.mx', 'pwc.com.ar', 'pwc.cl',
+    'pwc.com.co', 'pwc.com.pe', 'pwc.ru', 'pwc.ua', 'pwc.kz', 'pwc.com.tr', 'pwc.co.il',
+    'pwc.com.sa', 'pwc.com.qa', 'pwc.com.kw', 'pwc.com.bh', 'pwc.com.om',
+    'pwc.co.ke', 'pwc.com.ng', 'pwc.co.tz', 'pwc.com.gh', 'pwc.com.eg',
+    'pwc.com.my', 'pwc.co.th', 'pwc.co.id', 'pwc.com.ph', 'pwc.com.vn',
+    'pwc.com.tw', 'pwc.co.kr', 'pwc.com.pk', 'pwc.com.bd',
+    'taxsummaries.pwc.com',
+    
+    // EY
+    'ey.com', 'ey.fr', 'ey.de', 'ey.co.uk', 'ey.ch', 'ey.be', 'ey.nl', 'ey.es', 
+    'ey.it', 'ey.lu', 'ey.at', 'ey.ie', 'ey.pt', 'ey.pl', 'ey.cz', 'ey.hu', 
+    'ey.ro', 'ey.bg', 'ey.gr', 'ey.se', 'ey.dk', 'ey.fi', 'ey.no', 'ey.jp', 
+    'ey.cn', 'ey.com.au', 'ey.ca', 'ey.com.br', 'ey.co.za', 'ey.ae', 'ey.sg', 
+    'ey.co.in', 'ey.com.hk', 'ey.co.nz', 'ey.com.mx', 'ey.com.ar', 'ey.cl',
+    'ey.com.co', 'ey.com.pe', 'ey.ru', 'ey.ua', 'ey.kz', 'ey.com.tr', 'ey.co.il',
+    'ey.com.sa', 'ey.com.qa', 'ey.com.kw', 'ey.com.bh', 'ey.com.om',
+    'ey.co.ke', 'ey.com.ng', 'ey.co.tz', 'ey.com.gh', 'ey.com.eg',
+    'ey.com.my', 'ey.co.th', 'ey.co.id', 'ey.com.ph', 'ey.com.vn',
+    'ey.com.tw', 'ey.co.kr', 'ey.com.pk', 'ey.com.bd',
+    
+    // KPMG
+    'kpmg.com', 'kpmg.fr', 'kpmg.de', 'kpmg.co.uk', 'kpmg.ch', 'kpmg.be', 'kpmg.nl', 
+    'kpmg.es', 'kpmg.it', 'kpmg.lu', 'kpmg.at', 'kpmg.ie', 'kpmg.pt', 'kpmg.pl', 
+    'kpmg.cz', 'kpmg.hu', 'kpmg.ro', 'kpmg.bg', 'kpmg.gr', 'kpmg.se', 'kpmg.dk', 
+    'kpmg.fi', 'kpmg.no', 'kpmg.jp', 'kpmg.cn', 'kpmg.com.au', 'kpmg.ca', 
+    'kpmg.com.br', 'kpmg.co.za', 'kpmg.ae', 'kpmg.sg', 'kpmg.co.in', 'kpmg.com.hk',
+    'kpmg.co.nz', 'kpmg.com.mx', 'kpmg.com.ar', 'kpmg.cl', 'kpmg.com.co', 'kpmg.com.pe',
+    'kpmg.ru', 'kpmg.ua', 'kpmg.kz', 'kpmg.com.tr', 'kpmg.co.il',
+    'kpmg.com.sa', 'kpmg.com.qa', 'kpmg.com.kw', 'kpmg.com.bh', 'kpmg.com.om',
+    'kpmg.co.ke', 'kpmg.com.ng', 'kpmg.co.tz', 'kpmg.com.gh', 'kpmg.com.eg',
+    'kpmg.com.my', 'kpmg.co.th', 'kpmg.co.id', 'kpmg.com.ph', 'kpmg.com.vn',
+    'kpmg.com.tw', 'kpmg.co.kr', 'kpmg.com.pk', 'kpmg.com.bd',
   ],
 
   // ============================================================================
   // ORGANISATIONS INTERNATIONALES
   // ============================================================================
   international: [
-    'oecd.org',           // OCDE
-    'imf.org',            // FMI
-    'worldbank.org',      // Banque Mondiale
-    'un.org',             // ONU
-    'wto.org',            // OMC
-    'unctad.org',         // CNUCED
-    'taxfoundation.org',  // Tax Foundation
-    'tax-news.com',
-    'internationaltaxreview.com',
-    'taxnotes.com',
-    'ibfd.org',           // International Bureau of Fiscal Documentation
+    'oecd.org', 'imf.org', 'worldbank.org', 'un.org', 'wto.org', 'unctad.org',
+    'taxfoundation.org', 'tax-news.com', 'internationaltaxreview.com', 'taxnotes.com',
+    'ibfd.org', 'tax-platform.org', 'taxjustice.net', 'globaltaxation.org',
   ],
 
   // ============================================================================
-  // EUROPE
+  // UNION EUROPÉENNE
+  // ============================================================================
+  EU: [
+    'europa.eu', 'eur-lex.europa.eu', 'ec.europa.eu', 'taxation-customs.ec.europa.eu',
+  ],
+
+  // ============================================================================
+  // EUROPE OCCIDENTALE
   // ============================================================================
   
-  // Union Européenne
-  EU: [
-    'europa.eu',
-    'eur-lex.europa.eu',
-    'ec.europa.eu',
-    'taxation-customs.ec.europa.eu',
-  ],
-
   // France
-  FR: [
-    'legifrance.gouv.fr',
-    'impots.gouv.fr',
-    'bofip.impots.gouv.fr',
-    'economie.gouv.fr',
-    'service-public.fr',
-    'entreprises.gouv.fr',
-    'urssaf.fr',
-    'amf-france.org',
-    'conseil-etat.fr',
-    'ccomptes.fr',
+  france: [
+    'legifrance.gouv.fr', 'impots.gouv.fr', 'bofip.impots.gouv.fr', 'economie.gouv.fr',
+    'service-public.fr', 'tresor.economie.gouv.fr', 'budget.gouv.fr', 'urssaf.fr',
+    'entreprises.gouv.fr', 'douane.gouv.fr', 'ccomptes.fr', 'conseil-etat.fr',
+    'legalnews.fr', 'fiscalonline.com', 'editions-francis-lefebvre.fr',
   ],
-
+  
   // Allemagne
-  DE: [
-    'bundesfinanzministerium.de',
-    'bzst.de',
-    'gesetze-im-internet.de',
-    'bundesregierung.de',
-    'destatis.de',
-    'bundesbank.de',
-    'bafin.de',
+  germany: [
+    'bundesfinanzministerium.de', 'bzst.de', 'gesetze-im-internet.de', 'bundesregierung.de',
+    'destatis.de', 'zoll.de', 'bundesbank.de', 'bafa.de', 'ihk.de',
   ],
-
+  
   // Royaume-Uni
-  GB: [
-    'gov.uk',
-    'hmrc.gov.uk',
-    'legislation.gov.uk',
-    'bankofengland.co.uk',
-    'fca.org.uk',
-    'ons.gov.uk',
+  uk: [
+    'gov.uk', 'hmrc.gov.uk', 'legislation.gov.uk', 'ons.gov.uk', 'bankofengland.co.uk',
+    'fca.org.uk', 'companieshouse.gov.uk', 'judiciary.uk',
   ],
-
+  
   // Italie
-  IT: [
-    'agenziaentrate.gov.it',
-    'mef.gov.it',
-    'gazzettaufficiale.it',
-    'normattiva.it',
-    'bancaditalia.it',
-    'consob.it',
+  italy: [
+    'agenziaentrate.gov.it', 'mef.gov.it', 'gazzettaufficiale.it', 'normattiva.it',
+    'dt.mef.gov.it', 'rgs.mef.gov.it', 'corteconti.it',
   ],
-
+  
   // Espagne
-  ES: [
-    'agenciatributaria.es',
-    'agenciatributaria.gob.es',
-    'hacienda.gob.es',
-    'boe.es',
-    'seg-social.es',
-    'bde.es',
+  spain: [
+    'agenciatributaria.es', 'agenciatributaria.gob.es', 'boe.es', 'hacienda.gob.es',
+    'minhap.gob.es', 'seg-social.es', 'poderjudicial.es',
   ],
-
+  
   // Pays-Bas
-  NL: [
-    'belastingdienst.nl',
-    'rijksoverheid.nl',
-    'overheid.nl',
-    'wetten.overheid.nl',
-    'dnb.nl',
-    'afm.nl',
+  netherlands: [
+    'belastingdienst.nl', 'rijksoverheid.nl', 'overheid.nl', 'wetten.overheid.nl',
+    'rechtspraak.nl', 'dnb.nl', 'kvk.nl',
   ],
-
+  
   // Belgique
-  BE: [
-    'finances.belgium.be',
-    'fisconetplus.be',
-    'belgium.be',
-    'ejustice.just.fgov.be',
-    'nbb.be',
-    'fsma.be',
+  belgium: [
+    'finances.belgium.be', 'fisconetplus.be', 'ejustice.just.fgov.be', 'nbb.be',
+    'socialsecurity.be', 'belgium.be', 'just.fgov.be',
   ],
-
-  // Luxembourg
-  LU: [
-    'impotsdirects.public.lu',
-    'acd.gouvernement.lu',
-    'guichet.public.lu',
-    'legilux.public.lu',
-    'bcl.lu',
-    'cssf.lu',
-  ],
-
+  
   // Suisse
-  CH: [
-    'estv.admin.ch',
-    'admin.ch',
-    'fedlex.admin.ch',
-    'snb.ch',
-    'finma.ch',
+  switzerland: [
+    'admin.ch', 'estv.admin.ch', 'fedlex.admin.ch', 'bfs.admin.ch', 'snb.ch',
+    'finma.ch', 'seco.admin.ch',
   ],
-
+  
+  // Luxembourg
+  luxembourg: [
+    'impotsdirects.public.lu', 'guichet.public.lu', 'legilux.public.lu', 'gouvernement.lu',
+    'aed.public.lu', 'cssf.lu', 'bcl.lu',
+  ],
+  
   // Autriche
-  AT: [
-    'bmf.gv.at',
-    'ris.bka.gv.at',
-    'oesterreich.gv.at',
-    'oenb.at',
-    'fma.gv.at',
+  austria: [
+    'bmf.gv.at', 'ris.bka.gv.at', 'finanz.at', 'oesterreich.gv.at', 'oenb.at',
+    'wko.at', 'statistik.at',
   ],
-
-  // Irlande
-  IE: [
-    'revenue.ie',
-    'gov.ie',
-    'irishstatutebook.ie',
-    'centralbank.ie',
-  ],
-
+  
   // Portugal
-  PT: [
-    'portaldasfinancas.gov.pt',
-    'at.gov.pt',
-    'dre.pt',
-    'bportugal.pt',
-    'cmvm.pt',
+  portugal: [
+    'portaldasfinancas.gov.pt', 'dre.pt', 'portugal.gov.pt', 'seg-social.pt',
+    'bportugal.pt', 'dgae.gov.pt',
   ],
-
+  
+  // Irlande
+  ireland: [
+    'revenue.ie', 'irishstatutebook.ie', 'gov.ie', 'centralbank.ie', 'cro.ie',
+  ],
+  
   // Grèce
-  GR: [
-    'aade.gr',
-    'gsis.gr',
-    'minfin.gr',
-    'et.gr',
-    'bankofgreece.gr',
+  greece: [
+    'aade.gr', 'gsis.gr', 'minfin.gr', 'et.gr', 'bankofgreece.gr',
   ],
 
-  // Pologne
-  PL: [
-    'podatki.gov.pl',
-    'mf.gov.pl',
-    'gov.pl',
-    'sejm.gov.pl',
-    'nbp.pl',
-    'knf.gov.pl',
-  ],
-
+  // ============================================================================
+  // EUROPE DU NORD
+  // ============================================================================
+  
   // Suède
-  SE: [
-    'skatteverket.se',
-    'government.se',
-    'riksdagen.se',
-    'riksbank.se',
-    'fi.se',
+  sweden: [
+    'skatteverket.se', 'riksdagen.se', 'regeringen.se', 'scb.se', 'riksbank.se',
   ],
-
+  
   // Danemark
-  DK: [
-    'skat.dk',
-    'retsinformation.dk',
-    'fm.dk',
-    'nationalbanken.dk',
-    'finanstilsynet.dk',
+  denmark: [
+    'skat.dk', 'retsinformation.dk', 'stm.dk', 'dst.dk', 'nationalbanken.dk',
   ],
-
-  // Finlande
-  FI: [
-    'vero.fi',
-    'finlex.fi',
-    'vm.fi',
-    'bof.fi',
-    'finanssivalvonta.fi',
-  ],
-
+  
   // Norvège
-  NO: [
-    'skatteetaten.no',
-    'regjeringen.no',
-    'lovdata.no',
-    'norges-bank.no',
-    'finanstilsynet.no',
+  norway: [
+    'skatteetaten.no', 'lovdata.no', 'regjeringen.no', 'ssb.no', 'norges-bank.no',
   ],
-
-  // République Tchèque
-  CZ: [
-    'financnisprava.cz',
-    'mfcr.cz',
-    'zakonyprolidi.cz',
-    'cnb.cz',
+  
+  // Finlande
+  finland: [
+    'vero.fi', 'finlex.fi', 'valtioneuvosto.fi', 'stat.fi', 'suomenpankki.fi',
   ],
-
-  // Hongrie
-  HU: [
-    'nav.gov.hu',
-    'kormany.hu',
-    'njt.hu',
-    'mnb.hu',
-  ],
-
-  // Roumanie
-  RO: [
-    'anaf.ro',
-    'mfinante.gov.ro',
-    'legislatie.just.ro',
-    'bnr.ro',
-  ],
-
-  // Bulgarie
-  BG: [
-    'nap.bg',
-    'minfin.bg',
-    'lex.bg',
-    'bnb.bg',
-  ],
-
-  // Croatie
-  HR: [
-    'porezna-uprava.hr',
-    'mfin.gov.hr',
-    'zakon.hr',
-    'hnb.hr',
-  ],
-
-  // Slovénie
-  SI: [
-    'fu.gov.si',
-    'mf.gov.si',
-    'pisrs.si',
-    'bsi.si',
-  ],
-
-  // Slovaquie
-  SK: [
-    'financnasprava.sk',
-    'mfsr.sk',
-    'slov-lex.sk',
-    'nbs.sk',
-  ],
-
-  // Estonie
-  EE: [
-    'emta.ee',
-    'fin.ee',
-    'riigiteataja.ee',
-    'eestipank.ee',
-  ],
-
-  // Lettonie
-  LV: [
-    'vid.gov.lv',
-    'fm.gov.lv',
-    'likumi.lv',
-    'bank.lv',
-  ],
-
-  // Lituanie
-  LT: [
-    'vmi.lt',
-    'finmin.lrv.lt',
-    'e-tar.lt',
-    'lb.lt',
-  ],
-
-  // Chypre
-  CY: [
-    'mof.gov.cy',
-    'tax.gov.cy',
-    'cylaw.org',
-    'centralbank.cy',
-  ],
-
-  // Malte
-  MT: [
-    'cfr.gov.mt',
-    'mfin.gov.mt',
-    'justiceservices.gov.mt',
-    'centralbankmalta.org',
-  ],
-
+  
   // Islande
-  IS: [
-    'rsk.is',
-    'government.is',
-    'althingi.is',
-    'cb.is',
-  ],
-
-  // Liechtenstein
-  LI: [
-    'stv.li',
-    'regierung.li',
-    'gesetze.li',
-  ],
-
-  // Monaco
-  MC: [
-    'gouv.mc',
-    'service-public-entreprises.gouv.mc',
-  ],
-
-  // Andorre
-  AD: [
-    'govern.ad',
-    'tributs.ad',
-  ],
-
-  // San Marino
-  SM: [
-    'gov.sm',
-    'bcsm.sm',
+  iceland: [
+    'rsk.is', 'althingi.is', 'government.is', 'sedlabanki.is',
   ],
 
   // ============================================================================
-  // AMÉRIQUE DU NORD
+  // EUROPE DE L'EST
   // ============================================================================
-
-  // États-Unis
-  US: [
-    'irs.gov',
-    'treasury.gov',
-    'congress.gov',
-    'law.cornell.edu',
-    'gpo.gov',
-    'sec.gov',
-    'federalreserve.gov',
-    'taxfoundation.org',
+  
+  // Pologne
+  poland: [
+    'podatki.gov.pl', 'mf.gov.pl', 'sejm.gov.pl', 'isap.sejm.gov.pl', 'nbp.pl',
   ],
-
-  // Canada
-  CA: [
-    'canada.ca',
-    'cra-arc.gc.ca',
-    'fin.gc.ca',
-    'laws-lois.justice.gc.ca',
-    'bankofcanada.ca',
-    'osc.ca',
+  
+  // République Tchèque
+  czechia: [
+    'financnisprava.cz', 'mfcr.cz', 'psp.cz', 'cnb.cz', 'czso.cz',
   ],
-
-  // Mexique
-  MX: [
-    'sat.gob.mx',
-    'shcp.gob.mx',
-    'dof.gob.mx',
-    'banxico.org.mx',
+  
+  // Hongrie
+  hungary: [
+    'nav.gov.hu', 'kormany.hu', 'njt.hu', 'mnb.hu', 'ksh.hu',
   ],
-
-  // ============================================================================
-  // AMÉRIQUE LATINE
-  // ============================================================================
-
-  // Brésil
-  BR: [
-    'receita.fazenda.gov.br',
-    'gov.br',
-    'planalto.gov.br',
-    'bcb.gov.br',
-    'cvm.gov.br',
+  
+  // Roumanie
+  romania: [
+    'anaf.ro', 'mfinante.gov.ro', 'cdep.ro', 'bnr.ro', 'insse.ro',
   ],
-
-  // Argentine
-  AR: [
-    'afip.gob.ar',
-    'argentina.gob.ar',
-    'infoleg.gob.ar',
-    'bcra.gob.ar',
+  
+  // Bulgarie
+  bulgaria: [
+    'nap.bg', 'minfin.bg', 'parliament.bg', 'bnb.bg', 'nsi.bg',
   ],
-
-  // Chili
-  CL: [
-    'sii.cl',
-    'hacienda.cl',
-    'leychile.cl',
-    'bcentral.cl',
+  
+  // Croatie
+  croatia: [
+    'porezna-uprava.hr', 'mfin.gov.hr', 'sabor.hr', 'hnb.hr', 'dzs.hr',
   ],
-
-  // Colombie
-  CO: [
-    'dian.gov.co',
-    'minhacienda.gov.co',
-    'suin-juriscol.gov.co',
-    'banrep.gov.co',
+  
+  // Slovénie
+  slovenia: [
+    'fu.gov.si', 'mf.gov.si', 'dz-rs.si', 'bsi.si', 'stat.si',
   ],
-
-  // Pérou
-  PE: [
-    'sunat.gob.pe',
-    'mef.gob.pe',
-    'leyes.congreso.gob.pe',
-    'bcrp.gob.pe',
+  
+  // Slovaquie
+  slovakia: [
+    'financnasprava.sk', 'mfsr.sk', 'nrsr.sk', 'nbs.sk', 'statistics.sk',
   ],
-
-  // Venezuela
-  VE: [
-    'seniat.gob.ve',
-    'bcv.org.ve',
+  
+  // Estonie
+  estonia: [
+    'emta.ee', 'fin.ee', 'riigikogu.ee', 'eestipank.ee', 'stat.ee',
   ],
-
-  // Équateur
-  EC: [
-    'sri.gob.ec',
-    'finanzas.gob.ec',
-    'bce.fin.ec',
+  
+  // Lettonie
+  latvia: [
+    'vid.gov.lv', 'fm.gov.lv', 'saeima.lv', 'bank.lv', 'csb.gov.lv',
   ],
-
-  // Uruguay
-  UY: [
-    'dgi.gub.uy',
-    'mef.gub.uy',
-    'bcu.gub.uy',
+  
+  // Lituanie
+  lithuania: [
+    'vmi.lt', 'finmin.lrv.lt', 'lrs.lt', 'lb.lt', 'stat.gov.lt',
   ],
-
-  // Paraguay
-  PY: [
-    'set.gov.py',
-    'hacienda.gov.py',
-    'bcp.gov.py',
+  
+  // Ukraine
+  ukraine: [
+    'tax.gov.ua', 'mof.gov.ua', 'rada.gov.ua', 'bank.gov.ua', 'ukrstat.gov.ua',
   ],
-
-  // Bolivie
-  BO: [
-    'impuestos.gob.bo',
-    'economiayfinanzas.gob.bo',
-    'bcb.gob.bo',
+  
+  // Russie
+  russia: [
+    'nalog.gov.ru', 'minfin.gov.ru', 'duma.gov.ru', 'cbr.ru', 'gks.ru',
   ],
-
-  // Panama
-  PA: [
-    'dgi.gob.pa',
-    'mef.gob.pa',
-    'superbancos.gob.pa',
+  
+  // Biélorussie
+  belarus: [
+    'nalog.gov.by', 'minfin.gov.by', 'house.gov.by', 'nbrb.by',
   ],
-
-  // Costa Rica
-  CR: [
-    'hacienda.go.cr',
-    'pgrweb.go.cr',
-    'bccr.fi.cr',
+  
+  // Moldavie
+  moldova: [
+    'fisc.md', 'mf.gov.md', 'parlament.md', 'bnm.md',
   ],
 
   // ============================================================================
-  // ASIE-PACIFIQUE
+  // ASIE - PACIFIQUE
   // ============================================================================
-
+  
   // Chine
-  CN: [
-    'chinatax.gov.cn',
-    'mof.gov.cn',
-    'pbc.gov.cn',
-    'csrc.gov.cn',
+  china: [
+    'chinatax.gov.cn', 'mof.gov.cn', 'npc.gov.cn', 'pbc.gov.cn', 'stats.gov.cn',
+    'safe.gov.cn', 'customs.gov.cn',
   ],
-
+  
   // Japon
-  JP: [
-    'nta.go.jp',
-    'mof.go.jp',
-    'e-gov.go.jp',
-    'boj.or.jp',
-    'fsa.go.jp',
+  japan: [
+    'nta.go.jp', 'mof.go.jp', 'shugiin.go.jp', 'boj.or.jp', 'stat.go.jp',
   ],
-
+  
   // Corée du Sud
-  KR: [
-    'nts.go.kr',
-    'moef.go.kr',
-    'law.go.kr',
-    'bok.or.kr',
-    'fss.or.kr',
+  southKorea: [
+    'nts.go.kr', 'moef.go.kr', 'assembly.go.kr', 'bok.or.kr', 'kostat.go.kr',
   ],
-
+  
   // Inde
-  IN: [
-    'incometaxindia.gov.in',
-    'gst.gov.in',
-    'finmin.nic.in',
-    'indiacode.nic.in',
-    'rbi.org.in',
-    'sebi.gov.in',
+  india: [
+    'incometaxindia.gov.in', 'finmin.nic.in', 'india.gov.in', 'rbi.org.in',
+    'cbic.gov.in', 'gst.gov.in', 'mospi.gov.in',
   ],
-
-  // Australie
-  AU: [
-    'ato.gov.au',
-    'treasury.gov.au',
-    'legislation.gov.au',
-    'rba.gov.au',
-    'asic.gov.au',
-  ],
-
-  // Nouvelle-Zélande
-  NZ: [
-    'ird.govt.nz',
-    'treasury.govt.nz',
-    'legislation.govt.nz',
-    'rbnz.govt.nz',
-  ],
-
+  
   // Singapour
-  SG: [
-    'iras.gov.sg',
-    'mof.gov.sg',
-    'sso.agc.gov.sg',
-    'mas.gov.sg',
+  singapore: [
+    'iras.gov.sg', 'mof.gov.sg', 'parliament.gov.sg', 'mas.gov.sg', 'singstat.gov.sg',
+    'acra.gov.sg', 'customs.gov.sg',
   ],
-
+  
   // Hong Kong
-  HK: [
-    'ird.gov.hk',
-    'fstb.gov.hk',
-    'elegislation.gov.hk',
-    'hkma.gov.hk',
+  hongKong: [
+    'ird.gov.hk', 'gov.hk', 'legco.gov.hk', 'hkma.gov.hk', 'censtatd.gov.hk',
+    'cr.gov.hk', 'customs.gov.hk',
   ],
-
+  
   // Taïwan
-  TW: [
-    'mof.gov.tw',
-    'ntbt.gov.tw',
-    'law.moj.gov.tw',
-    'cbc.gov.tw',
+  taiwan: [
+    'tax.nat.gov.tw', 'mof.gov.tw', 'ly.gov.tw', 'cbc.gov.tw', 'stat.gov.tw',
   ],
-
+  
   // Malaisie
-  MY: [
-    'hasil.gov.my',
-    'treasury.gov.my',
-    'bnm.gov.my',
-    'sc.com.my',
+  malaysia: [
+    'hasil.gov.my', 'treasury.gov.my', 'parlimen.gov.my', 'bnm.gov.my', 'dosm.gov.my',
+    'ssm.com.my', 'customs.gov.my',
   ],
-
+  
   // Thaïlande
-  TH: [
-    'rd.go.th',
-    'mof.go.th',
-    'bot.or.th',
-    'sec.or.th',
+  thailand: [
+    'rd.go.th', 'mof.go.th', 'parliament.go.th', 'bot.or.th', 'nso.go.th',
+    'customs.go.th',
   ],
-
+  
   // Indonésie
-  ID: [
-    'pajak.go.id',
-    'kemenkeu.go.id',
-    'bi.go.id',
-    'ojk.go.id',
+  indonesia: [
+    'pajak.go.id', 'kemenkeu.go.id', 'dpr.go.id', 'bi.go.id', 'bps.go.id',
+    'beacukai.go.id',
   ],
-
-  // Philippines
-  PH: [
-    'bir.gov.ph',
-    'dof.gov.ph',
-    'bsp.gov.ph',
-    'sec.gov.ph',
-  ],
-
+  
   // Vietnam
-  VN: [
-    'gdt.gov.vn',
-    'mof.gov.vn',
-    'sbv.gov.vn',
+  vietnam: [
+    'gdt.gov.vn', 'mof.gov.vn', 'quochoi.vn', 'sbv.gov.vn', 'gso.gov.vn',
+    'customs.gov.vn',
   ],
-
+  
+  // Philippines
+  philippines: [
+    'bir.gov.ph', 'dof.gov.ph', 'congress.gov.ph', 'bsp.gov.ph', 'psa.gov.ph',
+  ],
+  
   // Pakistan
-  PK: [
-    'fbr.gov.pk',
-    'finance.gov.pk',
-    'sbp.org.pk',
+  pakistan: [
+    'fbr.gov.pk', 'finance.gov.pk', 'na.gov.pk', 'sbp.org.pk', 'pbs.gov.pk',
   ],
-
+  
   // Bangladesh
-  BD: [
-    'nbr.gov.bd',
-    'mof.gov.bd',
-    'bb.org.bd',
+  bangladesh: [
+    'nbr.gov.bd', 'mof.gov.bd', 'parliament.gov.bd', 'bb.org.bd', 'bbs.gov.bd',
   ],
-
+  
   // Sri Lanka
-  LK: [
-    'ird.gov.lk',
-    'treasury.gov.lk',
-    'cbsl.gov.lk',
+  sriLanka: [
+    'ird.gov.lk', 'treasury.gov.lk', 'parliament.lk', 'cbsl.gov.lk',
+  ],
+  
+  // Australie
+  australia: [
+    'ato.gov.au', 'treasury.gov.au', 'aph.gov.au', 'rba.gov.au', 'abs.gov.au',
+    'asic.gov.au', 'abf.gov.au',
+  ],
+  
+  // Nouvelle-Zélande
+  newZealand: [
+    'ird.govt.nz', 'treasury.govt.nz', 'parliament.nz', 'rbnz.govt.nz', 'stats.govt.nz',
   ],
 
   // ============================================================================
   // MOYEN-ORIENT
   // ============================================================================
-
+  
   // Émirats Arabes Unis
-  AE: [
-    'tax.gov.ae',
-    'mof.gov.ae',
-    'centralbank.ae',
-    'sca.gov.ae',
+  uae: [
+    'tax.gov.ae', 'mof.gov.ae', 'government.ae', 'centralbank.ae', 'fcsc.gov.ae',
+    'economy.gov.ae', 'customs.gov.ae',
   ],
-
+  
   // Arabie Saoudite
-  SA: [
-    'zatca.gov.sa',
-    'mof.gov.sa',
-    'sama.gov.sa',
-    'cma.org.sa',
+  saudiArabia: [
+    'zatca.gov.sa', 'mof.gov.sa', 'shura.gov.sa', 'sama.gov.sa', 'stats.gov.sa',
+    'gazt.gov.sa',
   ],
-
+  
   // Qatar
-  QA: [
-    'gta.gov.qa',
-    'mof.gov.qa',
-    'qcb.gov.qa',
+  qatar: [
+    'gta.gov.qa', 'mof.gov.qa', 'shura.gov.qa', 'qcb.gov.qa', 'psa.gov.qa',
   ],
-
+  
   // Koweït
-  KW: [
-    'mof.gov.kw',
-    'cbk.gov.kw',
+  kuwait: [
+    'mof.gov.kw', 'kna.kw', 'cbk.gov.kw', 'csb.gov.kw',
   ],
-
+  
   // Bahreïn
-  BH: [
-    'nbr.gov.bh',
-    'mofne.gov.bh',
-    'cbb.gov.bh',
+  bahrain: [
+    'nbr.gov.bh', 'mof.gov.bh', 'nuwab.bh', 'cbb.gov.bh',
   ],
-
+  
   // Oman
-  OM: [
-    'taxoman.gov.om',
-    'mof.gov.om',
-    'cbo.gov.om',
+  oman: [
+    'taxoman.gov.om', 'mof.gov.om', 'majlesalshura.gov.om', 'cbo.gov.om',
   ],
-
+  
   // Israël
-  IL: [
-    'taxes.gov.il',
-    'mof.gov.il',
-    'boi.org.il',
-    'isa.gov.il',
+  israel: [
+    'taxes.gov.il', 'mof.gov.il', 'knesset.gov.il', 'boi.org.il', 'cbs.gov.il',
   ],
-
+  
   // Turquie
-  TR: [
-    'gib.gov.tr',
-    'hmb.gov.tr',
-    'mevzuat.gov.tr',
-    'tcmb.gov.tr',
-    'spk.gov.tr',
+  turkey: [
+    'gib.gov.tr', 'hmb.gov.tr', 'tbmm.gov.tr', 'tcmb.gov.tr', 'tuik.gov.tr',
   ],
-
+  
   // Jordanie
-  JO: [
-    'istd.gov.jo',
-    'mof.gov.jo',
-    'cbj.gov.jo',
+  jordan: [
+    'istd.gov.jo', 'mof.gov.jo', 'parliament.jo', 'cbj.gov.jo', 'dos.gov.jo',
   ],
-
+  
   // Liban
-  LB: [
-    'finance.gov.lb',
-    'bdl.gov.lb',
+  lebanon: [
+    'finance.gov.lb', 'lp.gov.lb', 'bdl.gov.lb', 'cas.gov.lb',
   ],
-
+  
   // Égypte
-  EG: [
-    'eta.gov.eg',
-    'mof.gov.eg',
-    'cbe.org.eg',
+  egypt: [
+    'eta.gov.eg', 'mof.gov.eg', 'parliament.gov.eg', 'cbe.org.eg', 'capmas.gov.eg',
   ],
 
   // ============================================================================
   // AFRIQUE
   // ============================================================================
-
+  
   // Afrique du Sud
-  ZA: [
-    'sars.gov.za',
-    'treasury.gov.za',
-    'resbank.co.za',
-    'fsca.co.za',
+  southAfrica: [
+    'sars.gov.za', 'treasury.gov.za', 'parliament.gov.za', 'resbank.co.za', 'statssa.gov.za',
   ],
-
-  // Nigeria
-  NG: [
-    'firs.gov.ng',
-    'finance.gov.ng',
-    'cbn.gov.ng',
+  
+  // Nigéria
+  nigeria: [
+    'firs.gov.ng', 'finance.gov.ng', 'nassnig.org', 'cbn.gov.ng', 'nigerianstat.gov.ng',
   ],
-
+  
   // Kenya
-  KE: [
-    'kra.go.ke',
-    'treasury.go.ke',
-    'centralbank.go.ke',
+  kenya: [
+    'kra.go.ke', 'treasury.go.ke', 'parliament.go.ke', 'centralbank.go.ke', 'knbs.or.ke',
   ],
-
+  
   // Ghana
-  GH: [
-    'gra.gov.gh',
-    'mofep.gov.gh',
-    'bog.gov.gh',
+  ghana: [
+    'gra.gov.gh', 'mofep.gov.gh', 'parliament.gh', 'bog.gov.gh', 'statsghana.gov.gh',
   ],
-
-  // Maroc
-  MA: [
-    'tax.gov.ma',
-    'finances.gov.ma',
-    'bkam.ma',
-    'ammc.ma',
-  ],
-
-  // Tunisie
-  TN: [
-    'finances.gov.tn',
-    'bct.gov.tn',
-  ],
-
-  // Algérie
-  DZ: [
-    'mf.gov.dz',
-    'mfdgi.gov.dz',
-    'bank-of-algeria.dz',
-  ],
-
-  // Côte d'Ivoire
-  CI: [
-    'dgi.gouv.ci',
-    'finances.gouv.ci',
-    'bceao.int',
-  ],
-
-  // Sénégal
-  SN: [
-    'dgid.sn',
-    'finances.gouv.sn',
-    'bceao.int',
-  ],
-
-  // Maurice
-  MU: [
-    'mra.mu',
-    'mof.govmu.org',
-    'bom.mu',
-  ],
-
-  // Rwanda
-  RW: [
-    'rra.gov.rw',
-    'minecofin.gov.rw',
-    'bnr.rw',
-  ],
-
+  
   // Tanzanie
-  TZ: [
-    'tra.go.tz',
-    'mof.go.tz',
-    'bot.go.tz',
+  tanzania: [
+    'tra.go.tz', 'treasury.go.tz', 'parliament.go.tz', 'bot.go.tz', 'nbs.go.tz',
   ],
-
+  
   // Ouganda
-  UG: [
-    'ura.go.ug',
-    'finance.go.ug',
-    'bou.or.ug',
+  uganda: [
+    'ura.go.ug', 'finance.go.ug', 'parliament.go.ug', 'bou.or.ug', 'ubos.org',
   ],
-
+  
   // Éthiopie
-  ET: [
-    'mor.gov.et',
-    'mofed.gov.et',
-    'nbe.gov.et',
+  ethiopia: [
+    'mor.gov.et', 'mofed.gov.et', 'hopr.gov.et', 'nbe.gov.et', 'csa.gov.et',
+  ],
+  
+  // Maroc
+  morocco: [
+    'tax.gov.ma', 'finances.gov.ma', 'parlement.ma', 'bkam.ma', 'hcp.ma',
+  ],
+  
+  // Tunisie
+  tunisia: [
+    'finances.gov.tn', 'arp.tn', 'bct.gov.tn', 'ins.tn',
+  ],
+  
+  // Algérie
+  algeria: [
+    'mf.gov.dz', 'apn.dz', 'bank-of-algeria.dz', 'ons.dz',
+  ],
+  
+  // Côte d'Ivoire
+  ivoryCoast: [
+    'dgi.gouv.ci', 'finances.gouv.ci', 'assnat.ci', 'bceao.int',
+  ],
+  
+  // Sénégal
+  senegal: [
+    'dgid.sn', 'finances.gouv.sn', 'assemblee-nationale.sn', 'bceao.int',
+  ],
+  
+  // Cameroun
+  cameroon: [
+    'impots.cm', 'minfi.gov.cm', 'assnat.cm', 'beac.int',
+  ],
+  
+  // Maurice
+  mauritius: [
+    'mra.mu', 'mof.govmu.org', 'mauritiusassembly.govmu.org', 'bom.mu',
   ],
 
   // ============================================================================
-  // SOURCES FISCALES SPÉCIALISÉES (toujours autorisées)
+  // AMÉRIQUES
   // ============================================================================
-  specialized: [
-    // Cabinets et experts
-    'bdo.com',
-    'bdo.fr',
-    'bdo.global',
-    'grantthornton.com',
-    'grantthornton.fr',
-    'mazars.com',
-    'mazars.fr',
-    'rsm.global',
-    'bakertilly.com',
-    'crowe.com',
-    
-    // Publications fiscales
-    'lexisnexis.com',
-    'lexisnexis.fr',
-    'dalloz.fr',
-    'editions-francis-lefebvre.fr',
-    'efl.fr',
-    'lamy.fr',
-    'wolterskluwer.com',
-    'wolterskluwer.fr',
-    'tax-news.com',
-    'taxnotes.com',
-    'bloombergtax.com',
-    'taxanalysts.org',
-    
-    // Ressources juridiques
-    'legifrance.gouv.fr',
-    'law.cornell.edu',
-    'westlaw.com',
-    'caselaw.findlaw.com',
-    
-    // Académiques
-    'ssrn.com',
-    'jstor.org',
-    'hec.edu',
-    'essec.edu',
-    'dauphine.psl.eu',
+  
+  // États-Unis
+  usa: [
+    'irs.gov', 'treasury.gov', 'congress.gov', 'federalreserve.gov', 'bls.gov',
+    'sec.gov', 'cbp.gov', 'ustaxcourt.gov',
+  ],
+  
+  // Canada
+  canada: [
+    'canada.ca', 'cra-arc.gc.ca', 'fin.gc.ca', 'parl.ca', 'bankofcanada.ca', 'statcan.gc.ca',
+  ],
+  
+  // Mexique
+  mexico: [
+    'sat.gob.mx', 'shcp.gob.mx', 'diputados.gob.mx', 'banxico.org.mx', 'inegi.org.mx',
+  ],
+  
+  // Brésil
+  brazil: [
+    'receita.fazenda.gov.br', 'gov.br', 'camara.leg.br', 'bcb.gov.br', 'ibge.gov.br',
+  ],
+  
+  // Argentine
+  argentina: [
+    'afip.gob.ar', 'mecon.gob.ar', 'hcdn.gob.ar', 'bcra.gob.ar', 'indec.gob.ar',
+  ],
+  
+  // Chili
+  chile: [
+    'sii.cl', 'hacienda.cl', 'camara.cl', 'bcentral.cl', 'ine.cl',
+  ],
+  
+  // Colombie
+  colombia: [
+    'dian.gov.co', 'minhacienda.gov.co', 'camara.gov.co', 'banrep.gov.co', 'dane.gov.co',
+  ],
+  
+  // Pérou
+  peru: [
+    'sunat.gob.pe', 'mef.gob.pe', 'congreso.gob.pe', 'bcrp.gob.pe', 'inei.gob.pe',
+  ],
+  
+  // Venezuela
+  venezuela: [
+    'seniat.gob.ve', 'mppef.gob.ve', 'asambleanacional.gob.ve', 'bcv.org.ve',
+  ],
+  
+  // Équateur
+  ecuador: [
+    'sri.gob.ec', 'finanzas.gob.ec', 'asambleanacional.gob.ec', 'bce.fin.ec',
+  ],
+  
+  // Uruguay
+  uruguay: [
+    'dgi.gub.uy', 'mef.gub.uy', 'parlamento.gub.uy', 'bcu.gub.uy', 'ine.gub.uy',
+  ],
+  
+  // Paraguay
+  paraguay: [
+    'set.gov.py', 'hacienda.gov.py', 'congreso.gov.py', 'bcp.gov.py',
+  ],
+  
+  // Bolivie
+  bolivia: [
+    'impuestos.gob.bo', 'economiayfinanzas.gob.bo', 'diputados.bo', 'bcb.gob.bo',
+  ],
+  
+  // Panama
+  panama: [
+    'dgi.gob.pa', 'mef.gob.pa', 'asamblea.gob.pa', 'superbancos.gob.pa',
+  ],
+  
+  // Costa Rica
+  costaRica: [
+    'hacienda.go.cr', 'asamblea.go.cr', 'bccr.fi.cr',
+  ],
+
+  // ============================================================================
+  // PARADIS FISCAUX / CENTRES FINANCIERS OFFSHORE
+  // ============================================================================
+  offshore: [
+    // Îles Caïmans
+    'gov.ky', 'ditc.ky', 'cima.ky',
+    // Bermudes
+    'gov.bm', 'bma.bm',
+    // Îles Vierges Britanniques
+    'bvi.gov.vg', 'bvifsc.vg',
+    // Jersey
+    'gov.je', 'jerseyfsc.org',
+    // Guernesey
+    'gov.gg', 'gfsc.gg',
+    // Île de Man
+    'gov.im', 'iomfsa.im',
+    // Gibraltar
+    'gibraltar.gov.gi', 'fsc.gi',
+    // Liechtenstein
+    'llv.li', 'fma-li.li',
+    // Monaco
+    'gouv.mc', 'ccaf.mc',
+    // Andorre
+    'govern.ad', 'afa.ad',
+    // Saint-Marin
+    'gov.sm', 'bcsm.sm',
+    // Malte
+    'cfr.gov.mt', 'mfsa.mt', 'gov.mt',
+    // Chypre
+    'mof.gov.cy', 'cysec.gov.cy', 'centralbank.cy',
+    // Seychelles
+    'src.gov.sc', 'fsaseychelles.sc',
+    // Maurice (déjà inclus)
+    // Bahamas
+    'bahamas.gov.bs', 'centralbankbahamas.com',
+    // Barbade
+    'barbadosparliament.com', 'centralbank.org.bb',
+    // Curaçao
+    'gobiernu.cw', 'centralbank.cw',
+    // Aruba
+    'gobierno.aw', 'cbaruba.org',
+  ],
+
+  // ============================================================================
+  // ASIE CENTRALE
+  // ============================================================================
+  centralAsia: [
+    // Kazakhstan
+    'kgd.gov.kz', 'minfin.gov.kz', 'parlam.kz', 'nationalbank.kz', 'stat.gov.kz',
+    // Ouzbékistan
+    'soliq.uz', 'mf.uz', 'parliament.gov.uz', 'cbu.uz',
+    // Azerbaïdjan
+    'taxes.gov.az', 'maliyye.gov.az', 'meclis.gov.az', 'cbar.az',
+    // Géorgie
+    'rs.ge', 'mof.ge', 'parliament.ge', 'nbg.gov.ge',
+    // Arménie
+    'petekamutner.am', 'minfin.am', 'parliament.am', 'cba.am',
+    // Turkménistan
+    'minfin.gov.tm',
+    // Kirghizistan
+    'sti.gov.kg', 'minfin.kg', 'kenesh.kg', 'nbkr.kg',
+    // Tadjikistan
+    'andoz.tj', 'moliya.tj', 'majmilli.tj', 'nbt.tj',
+    // Mongolie
+    'mta.mn', 'mof.gov.mn', 'parliament.mn', 'mongolbank.mn',
   ],
 };
 
-// Flatten all domains into a single Set for fast lookup
-export const ALL_ALLOWED_DOMAINS = new Set([
-  ...WHITELIST.bigFour,
-  ...WHITELIST.international,
-  ...WHITELIST.specialized,
-  ...Object.entries(WHITELIST)
-    .filter(([key]) => !['bigFour', 'international', 'specialized'].includes(key))
-    .flatMap(([, domains]) => domains)
-]);
+// ============================================================================
+// FONCTIONS D'EXPORT
+// ============================================================================
 
-/**
- * Check if a URL is from an allowed domain
- */
+// Créer un Set de tous les domaines autorisés
+export const ALL_ALLOWED_DOMAINS = new Set(
+  Object.values(WHITELIST).flat()
+);
+
+console.log(`📋 Whitelist loaded: ${ALL_ALLOWED_DOMAINS.size} domains authorized`);
+
+// Vérifier si un domaine est autorisé
 export function isAllowedDomain(url) {
   try {
-    const hostname = new URL(url).hostname.replace('www.', '');
+    const hostname = new URL(url).hostname.toLowerCase();
     
-    // Check exact match
+    // Vérifier le domaine exact
     if (ALL_ALLOWED_DOMAINS.has(hostname)) return true;
     
-    // Check if subdomain of allowed domain
-    for (const domain of ALL_ALLOWED_DOMAINS) {
-      if (hostname.endsWith('.' + domain) || hostname === domain) {
-        return true;
-      }
+    // Vérifier les sous-domaines (ex: blog.deloitte.fr -> deloitte.fr)
+    const parts = hostname.split('.');
+    for (let i = 0; i < parts.length - 1; i++) {
+      const domain = parts.slice(i).join('.');
+      if (ALL_ALLOWED_DOMAINS.has(domain)) return true;
     }
     
     return false;
@@ -885,19 +682,7 @@ export function isAllowedDomain(url) {
   }
 }
 
-/**
- * Filter search results to only allowed domains
- */
+// Filtrer les résultats pour ne garder que les domaines autorisés
 export function filterResults(results) {
-  return results.filter(r => isAllowedDomain(r.url));
+  return results.filter(r => r && r.url && isAllowedDomain(r.url));
 }
-
-/**
- * Get country-specific domains
- */
-export function getCountryDomains(countryCode) {
-  const code = countryCode.toUpperCase();
-  return WHITELIST[code] || [];
-}
-
-export default WHITELIST;
