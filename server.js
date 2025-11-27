@@ -638,6 +638,201 @@ app.post('/analyze-sources', async (req, res) => {
   }
 });
 
+// ============================================================================
+// ENDPOINT UNIFIÉ /ask - Fait tout en un seul appel
+// ============================================================================
+
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+app.post('/ask', async (req, res) => {
+  const { question } = req.body;
+  if (!question) return res.status(400).json({ error: 'Question required' });
+  
+  console.log('\n🤖 ATLAS /ask - Question:', question);
+  const startTime = Date.now();
+  
+  try {
+    const year = new Date().getFullYear();
+    const b = await getBrowser();
+    
+    // PHASE 1: Recherche multi-requêtes
+    console.log('🔍 Phase 1: Recherche...');
+    const queries = [
+      `${question} ${year}`,
+      `${question} fiscalité ${year}`,
+      `${question} tax rate ${year}`,
+      `${question} impôt ${year}`,
+    ];
+    
+    const allResults = [];
+    for (const q of queries) {
+      const page = await b.newPage();
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      
+      try {
+        const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(q)}&t=h_&ia=web`;
+        await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 20000 });
+        await page.waitForSelector('[data-testid="result"]', { timeout: 10000 }).catch(() => {});
+        await new Promise(r => setTimeout(r, 1500));
+        
+        const results = await page.evaluate(() => {
+          const items = [];
+          document.querySelectorAll('[data-testid="result"]').forEach((el) => {
+            const link = el.querySelector('a[data-testid="result-title-a"]');
+            const snippet = el.querySelector('[data-result="snippet"]');
+            if (link?.href?.startsWith('http')) {
+              items.push({
+                title: link.textContent || '',
+                url: link.href,
+                snippet: snippet?.textContent || '',
+                source: new URL(link.href).hostname.replace('www.', '')
+              });
+            }
+          });
+          return items;
+        });
+        
+        allResults.push(...results);
+      } catch (e) {
+        console.log('   ⚠️', e.message);
+      }
+      await page.close();
+    }
+    
+    // Filtrer whitelist et dédupliquer
+    const filtered = filterResults(allResults);
+    const unique = Array.from(new Map(filtered.map(r => [r.url, r])).values()).slice(0, 8);
+    console.log(`   📊 ${allResults.length} bruts → ${filtered.length} whitelist → ${unique.length} uniques`);
+    
+    // PHASE 2: Extraction contenu
+    console.log('🔍 Phase 2: Extraction...');
+    const sources = [];
+    
+    for (const result of unique) {
+      const page = await b.newPage();
+      try {
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        await page.goto(result.url, { waitUntil: 'networkidle2', timeout: 25000 });
+        
+        // Cloudflare check
+        const isCloudflare = await page.evaluate(() => 
+          document.title.includes('Just a moment') || document.body.innerText.includes('Checking your browser')
+        );
+        if (isCloudflare) {
+          await new Promise(r => setTimeout(r, 5000));
+          await page.waitForNavigation({ timeout: 10000 }).catch(() => {});
+        }
+        
+        const data = await page.evaluate(() => {
+          let date = null;
+          const metaDate = document.querySelector('meta[property="article:published_time"], meta[name="date"]');
+          if (metaDate) date = metaDate.getAttribute('content');
+          if (!date) {
+            const timeEl = document.querySelector('time[datetime]');
+            if (timeEl) date = timeEl.getAttribute('datetime');
+          }
+          
+          document.querySelectorAll('script, style, nav, footer, header, aside').forEach(el => el.remove());
+          const main = document.querySelector('main, article, .content') || document.body;
+          const content = main.textContent.replace(/\s+/g, ' ').trim().substring(0, 10000);
+          
+          return { title: document.title, content, date };
+        });
+        
+        if (!data.title.includes('Just a moment') && data.content.length > 300) {
+          sources.push({
+            title: data.title,
+            url: result.url,
+            source: result.source,
+            date: data.date,
+            content: data.content,
+            isRecent: data.date && new Date(data.date) > new Date(Date.now() - 365*24*60*60*1000)
+          });
+          console.log(`   ✅ ${result.source}`);
+        }
+      } catch (e) {
+        console.log(`   ❌ ${result.source}`);
+      }
+      await page.close();
+    }
+    
+    if (sources.length === 0) {
+      return res.json({
+        answer: "❌ Aucune source officielle trouvée pour cette question.",
+        sources: [],
+        confidence: 'low'
+      });
+    }
+    
+    // PHASE 3: Synthèse Groq
+    console.log('🔍 Phase 3: Groq...');
+    
+    const context = sources.map((s, i) => 
+      `[Source ${i+1}: ${s.title}] (${s.date || 'date inconnue'})\n${s.url}\n${s.content.substring(0, 2500)}`
+    ).join('\n\n---\n\n');
+    
+    const prompt = `Tu es expert fiscal. Réponds précisément.
+
+RÈGLES:
+1. Cite TOUJOURS [Source X]
+2. Donne les taux et articles exacts
+3. Si sources anciennes (>1 an), préviens
+4. Ne jamais inventer
+
+QUESTION: ${question}
+
+SOURCES (${sources.length}):
+${context}
+
+JSON: {"answer": "réponse avec [Source X]", "confidence": "high|medium|low", "keyRates": [], "keyArticles": []}`;
+
+    const groqResponse = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 4096,
+      }),
+    });
+    
+    const groqData = await groqResponse.json();
+    
+    if (groqData.error) {
+      console.log('❌ Groq error:', groqData.error.message);
+      return res.json({
+        answer: "Erreur IA. Sources ci-dessous.",
+        sources: sources.map(s => ({ title: s.title, url: s.url, source: s.source, date: s.date, isRecent: s.isRecent })),
+        confidence: 'low'
+      });
+    }
+    
+    const parsed = JSON.parse(groqData.choices?.[0]?.message?.content || '{}');
+    const totalTime = Date.now() - startTime;
+    
+    console.log(`✅ Réponse en ${totalTime}ms`);
+    
+    res.json({
+      answer: parsed.answer || "Erreur",
+      sources: sources.map(s => ({ title: s.title, url: s.url, source: s.source, date: s.date, isRecent: s.isRecent })),
+      confidence: parsed.confidence || 'medium',
+      keyRates: parsed.keyRates || [],
+      keyArticles: parsed.keyArticles || [],
+      stats: { sourcesFound: unique.length, sourcesAnalyzed: sources.length, timeMs: totalTime }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
