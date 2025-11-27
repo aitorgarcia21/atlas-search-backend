@@ -147,8 +147,24 @@ app.post('/extract', async (req, res) => {
     const b = await getBrowser();
     const page = await b.newPage();
     
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+    });
+    
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
+    
+    // Wait for Cloudflare challenge if present
+    const isCloudflare = await page.evaluate(() => 
+      document.title.includes('Just a moment') || 
+      document.body.innerText.includes('Checking your browser')
+    );
+    
+    if (isCloudflare) {
+      console.log('⏳ Cloudflare detected, waiting...');
+      await new Promise(r => setTimeout(r, 5000));
+      await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {});
+    }
     
     const data = await page.evaluate(() => {
       // Extract date from page
