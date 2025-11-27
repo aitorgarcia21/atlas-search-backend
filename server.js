@@ -692,24 +692,14 @@ app.post('/ask', async (req, res) => {
     const unique = filtered.slice(0, 8);
     console.log(`   📊 ${allResults.length} bruts → ${filtered.length} whitelist → ${unique.length} uniques`);
     
-    // PHASE 2: Extraction contenu
-    console.log('🔍 Phase 2: Extraction...');
-    const sources = [];
+    // PHASE 2: Extraction PARALLÈLE (toutes les pages en même temps)
+    console.log('🔍 Phase 2: Extraction parallèle...');
     
-    for (const result of unique) {
+    const extractPage = async (result) => {
       const page = await b.newPage();
       try {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        await page.goto(result.url, { waitUntil: 'networkidle2', timeout: 25000 });
-        
-        // Cloudflare check
-        const isCloudflare = await page.evaluate(() => 
-          document.title.includes('Just a moment') || document.body.innerText.includes('Checking your browser')
-        );
-        if (isCloudflare) {
-          await new Promise(r => setTimeout(r, 5000));
-          await page.waitForNavigation({ timeout: 10000 }).catch(() => {});
-        }
+        await page.goto(result.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
         
         const data = await page.evaluate(() => {
           let date = null;
@@ -722,27 +712,33 @@ app.post('/ask', async (req, res) => {
           
           document.querySelectorAll('script, style, nav, footer, header, aside').forEach(el => el.remove());
           const main = document.querySelector('main, article, .content') || document.body;
-          const content = main.textContent.replace(/\s+/g, ' ').trim().substring(0, 10000);
+          const content = main.textContent.replace(/\s+/g, ' ').trim().substring(0, 8000);
           
           return { title: document.title, content, date };
         });
         
+        await page.close();
+        
         if (!data.title.includes('Just a moment') && data.content.length > 300) {
-          sources.push({
+          return {
             title: data.title,
             url: result.url,
             source: result.source,
             date: data.date,
             content: data.content,
             isRecent: data.date && new Date(data.date) > new Date(Date.now() - 365*24*60*60*1000)
-          });
-          console.log(`   ✅ ${result.source}`);
+          };
         }
       } catch (e) {
-        console.log(`   ❌ ${result.source}`);
+        await page.close().catch(() => {});
       }
-      await page.close();
-    }
+      return null;
+    };
+    
+    // Lancer toutes les extractions en parallèle
+    const extractResults = await Promise.all(unique.map(extractPage));
+    const sources = extractResults.filter(Boolean);
+    console.log(`   ✅ ${sources.length}/${unique.length} pages extraites en parallèle`);
     
     if (sources.length === 0) {
       return res.json({
@@ -759,20 +755,34 @@ app.post('/ask', async (req, res) => {
       `[Source ${i+1}: ${s.title}] (${s.date || 'date inconnue'})\n${s.url}\n${s.content.substring(0, 2500)}`
     ).join('\n\n---\n\n');
     
-    const prompt = `Tu es expert fiscal. Réponds précisément.
+    const prompt = `Tu es un EXPERT FISCAL de haut niveau, spécialisé en droit fiscal français et international.
 
-RÈGLES:
-1. Cite TOUJOURS [Source X]
-2. Donne les taux et articles exacts
-3. Si sources anciennes (>1 an), préviens
-4. Ne jamais inventer
+EXPERTISE:
+- Fiscalité des entreprises (IS, TVA, CET, taxes diverses)
+- Fiscalité des particuliers (IR, IFI, plus-values, successions)
+- Fiscalité internationale (conventions fiscales, prix de transfert, établissements stables)
+- Optimisation fiscale légale et structuration patrimoniale
+
+RÈGLES STRICTES:
+1. CITE TOUJOURS tes sources avec [Source X] - c'est OBLIGATOIRE
+2. Donne les TAUX EXACTS et les ARTICLES DE LOI (CGI, LPF, BOFiP)
+3. Mentionne les SEUILS et CONDITIONS d'application
+4. Si les sources datent de plus d'1 an, PRÉVIENS l'utilisateur
+5. Ne JAMAIS inventer - si tu ne sais pas, dis-le
+6. Structure ta réponse clairement avec des bullet points si nécessaire
 
 QUESTION: ${question}
 
-SOURCES (${sources.length}):
+SOURCES OFFICIELLES ANALYSÉES (${sources.length}):
 ${context}
 
-JSON: {"answer": "réponse avec [Source X]", "confidence": "high|medium|low", "keyRates": [], "keyArticles": []}`;
+Réponds en JSON:
+{
+  "answer": "Réponse détaillée et structurée avec citations [Source X]",
+  "confidence": "high|medium|low",
+  "keyRates": ["taux trouvés avec leur contexte"],
+  "keyArticles": ["articles de loi cités"]
+}`;
 
     const openaiResponse = await fetch(OPENAI_URL, {
       method: 'POST',
