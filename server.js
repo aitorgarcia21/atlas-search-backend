@@ -138,6 +138,37 @@ app.post('/extract', async (req, res) => {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     
     const data = await page.evaluate(() => {
+      // Extract date from page
+      let date = null;
+      
+      // Try meta tags
+      const metaDate = document.querySelector('meta[property="article:published_time"], meta[name="date"], meta[name="DC.date"], meta[property="og:updated_time"], meta[name="last-modified"]');
+      if (metaDate) date = metaDate.getAttribute('content');
+      
+      // Try time elements
+      if (!date) {
+        const timeEl = document.querySelector('time[datetime], time[pubdate]');
+        if (timeEl) date = timeEl.getAttribute('datetime') || timeEl.textContent;
+      }
+      
+      // Try common date patterns in text
+      if (!date) {
+        const datePatterns = [
+          /(?:publié|modifié|mis à jour|updated|published|date)[:\s]*(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+          /(?:publié|modifié|mis à jour|updated|published|date)[:\s]*(\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4})/i,
+          /(\d{1,2}[\/-]\d{1,2}[\/-]\d{4})/,
+          /(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/,
+        ];
+        const bodyText = document.body.innerText.substring(0, 5000);
+        for (const pattern of datePatterns) {
+          const match = bodyText.match(pattern);
+          if (match) {
+            date = match[1];
+            break;
+          }
+        }
+      }
+      
       // Remove unwanted elements
       document.querySelectorAll('script, style, nav, footer, header, aside, iframe').forEach(el => el.remove());
       
@@ -145,13 +176,19 @@ app.post('/extract', async (req, res) => {
       const main = document.querySelector('main, article, .content, #content, .post-content') || document.body;
       const content = main.textContent.replace(/\s+/g, ' ').trim().substring(0, 15000);
       
-      return { title, content };
+      return { title, content, date };
     });
     
     await page.close();
     
-    console.log(`✅ Extracted: ${data.title.substring(0, 50)}...`);
-    res.json({ url, title: data.title, content: data.content });
+    console.log(`✅ Extracted: ${data.title.substring(0, 50)}... | Date: ${data.date || 'non trouvée'}`);
+    res.json({ 
+      url, 
+      title: data.title, 
+      content: data.content,
+      date: data.date,
+      extractedAt: new Date().toISOString()
+    });
     
   } catch (error) {
     console.error('❌ Extract error:', error.message);
