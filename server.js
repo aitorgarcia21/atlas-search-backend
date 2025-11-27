@@ -642,8 +642,8 @@ app.post('/analyze-sources', async (req, res) => {
 // ENDPOINT UNIFIÉ /ask - Fait tout en un seul appel
 // ============================================================================
 
-const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
-const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 app.post('/ask', async (req, res) => {
   const { question } = req.body;
@@ -774,14 +774,14 @@ ${context}
 
 JSON: {"answer": "réponse avec [Source X]", "confidence": "high|medium|low", "keyRates": [], "keyArticles": []}`;
 
-    const mistralResponse = await fetch(MISTRAL_URL, {
+    const openaiResponse = await fetch(OPENAI_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mistral-large-latest',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
         temperature: 0.1,
@@ -789,10 +789,10 @@ JSON: {"answer": "réponse avec [Source X]", "confidence": "high|medium|low", "k
       }),
     });
     
-    const mistralData = await mistralResponse.json();
+    const openaiData = await openaiResponse.json();
     
-    if (mistralData.error) {
-      console.log('❌ Mistral error:', mistralData.error?.message || mistralData.error);
+    if (openaiData.error) {
+      console.log('❌ OpenAI error:', openaiData.error?.message || openaiData.error);
       return res.json({
         answer: "Erreur IA. Sources ci-dessous.",
         sources: sources.map(s => ({ title: s.title, url: s.url, source: s.source, date: s.date, isRecent: s.isRecent })),
@@ -800,7 +800,7 @@ JSON: {"answer": "réponse avec [Source X]", "confidence": "high|medium|low", "k
       });
     }
     
-    const parsed = JSON.parse(mistralData.choices?.[0]?.message?.content || '{}');
+    const parsed = JSON.parse(openaiData.choices?.[0]?.message?.content || '{}');
     const totalTime = Date.now() - startTime;
     
     console.log(`✅ Réponse en ${totalTime}ms`);
