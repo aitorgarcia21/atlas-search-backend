@@ -1,655 +1,269 @@
+/**
+ * ATLAS FISCAL - SERVEUR UNIFIÉ
+ * Puppeteer + Groq + API tout-en-un
+ */
+
 import express from 'express';
 import cors from 'cors';
 import puppeteer from 'puppeteer';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse');
-import { isAllowedDomain, filterResults, ALL_ALLOWED_DOMAINS } from './whitelist.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Config
+const PORT = process.env.PORT || 3001;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+// Browser singleton
 let browser = null;
-
-console.log(`📋 Whitelist loaded: ${ALL_ALLOWED_DOMAINS.size} domains authorized`);
-
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
       headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--single-process'
-      ]
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     });
   }
   return browser;
 }
 
-// Health check
-app.get('/', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    service: 'Atlas Search Backend',
-    whitelistedDomains: ALL_ALLOWED_DOMAINS.size,
-    version: '2.0.0'
-  });
-});
+// Whitelist des domaines autorisés
+const ALLOWED_DOMAINS = new Set([
+  // Big Four
+  'deloitte.com', 'pwc.com', 'ey.com', 'kpmg.com',
+  'taxsummaries.pwc.com', 'blog.avocats.deloitte.fr',
+  // France
+  'legifrance.gouv.fr', 'impots.gouv.fr', 'bofip.impots.gouv.fr', 
+  'economie.gouv.fr', 'service-public.fr', 'tresor.economie.gouv.fr',
+  // International
+  'oecd.org', 'europa.eu', 'eur-lex.europa.eu', 'ec.europa.eu',
+  'taxfoundation.org', 'taxnotes.com',
+  // UK
+  'gov.uk', 'hmrc.gov.uk', 'legislation.gov.uk',
+  // Germany
+  'bundesfinanzministerium.de', 'gesetze-im-internet.de',
+  // USA
+  'irs.gov', 'treasury.gov',
+  // Others
+  'iras.gov.sg', 'ird.gov.hk', 'gov.hk', 'gov.je',
+  'tax.gov.ae', 'assets.kpmg.com', 'taxnews.ey.com',
+]);
 
-// Get whitelist info
-app.get('/whitelist', (req, res) => {
-  res.json({
-    totalDomains: ALL_ALLOWED_DOMAINS.size,
-    domains: Array.from(ALL_ALLOWED_DOMAINS).sort()
-  });
-});
-
-// Check if domain is allowed
-app.get('/check/:domain', (req, res) => {
-  const domain = req.params.domain;
-  const allowed = isAllowedDomain('https://' + domain);
-  res.json({ domain, allowed });
-});
-
-// Web Search
-app.post('/search', async (req, res) => {
-  const { query, maxResults = 10, forceDate = true, countries = [] } = req.body;
-  
-  // Ajouter la date du jour pour forcer les résultats récents
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.toLocaleString('fr-FR', { month: 'long' });
-  const dateQuery = forceDate ? ` ${year}` : '';
-  
-  // Multi-pays : si plusieurs pays, on les ajoute à la requête
-  const countryQuery = countries.length > 0 ? ` ${countries.join(' OR ')}` : '';
-  
-  if (!query) {
-    return res.status(400).json({ error: 'Query required' });
-  }
-  
-  const fullQuery = query + dateQuery + countryQuery;
-  console.log('🔍 Searching:', fullQuery, `(date: ${year}, countries: ${countries.length || 'all'})`);
-  
+function isAllowed(url) {
   try {
-    const b = await getBrowser();
-    const page = await b.newPage();
-    
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1280, height: 800 });
-    
-    // DuckDuckGo Search (more permissive)
-    const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(fullQuery)}&t=h_&ia=web`;
-    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-    
-    // Wait for results to load
-    await page.waitForSelector('[data-testid="result"]', { timeout: 15000 }).catch(() => {});
-    await new Promise(r => setTimeout(r, 2000)); // Extra wait for JS
-    
-    // Extract results
-    const results = await page.evaluate(() => {
-      const items = [];
-      document.querySelectorAll('[data-testid="result"]').forEach((el) => {
-        const link = el.querySelector('a[data-testid="result-title-a"]');
-        const snippet = el.querySelector('[data-result="snippet"]');
-        
-        if (link && link.href && link.href.startsWith('http')) {
-          items.push({
-            title: link.textContent || '',
-            url: link.href,
-            snippet: snippet ? snippet.textContent : '',
-            source: new URL(link.href).hostname.replace('www.', '')
-          });
-        }
-      });
-      return items;
-    });
-    
-    await page.close();
-    
-    // Filter to only allowed domains
-    const filteredResults = filterResults(results);
-    
-    console.log(`✅ Found ${results.length} results, ${filteredResults.length} from authorized sources`);
-    res.json({ 
-      results: filteredResults.slice(0, maxResults), 
-      count: filteredResults.length,
-      totalFound: results.length 
-    });
-    
-  } catch (error) {
-    console.error('❌ Search error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Extract page content
-app.post('/extract', async (req, res) => {
-  const { url } = req.body;
-  
-  if (!url) {
-    return res.status(400).json({ error: 'URL required' });
-  }
-  
-  // Check if domain is allowed
-  if (!isAllowedDomain(url)) {
-    console.log('⛔ Blocked domain:', url);
-    return res.status(403).json({ error: 'Domain not in whitelist' });
-  }
-  
-  console.log('📄 Extracting:', url);
-  
-  try {
-    const b = await getBrowser();
-    const page = await b.newPage();
-    
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.setExtraHTTPHeaders({
-      'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-    });
-    
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
-    
-    // Wait for Cloudflare challenge if present
-    const isCloudflare = await page.evaluate(() => 
-      document.title.includes('Just a moment') || 
-      document.body.innerText.includes('Checking your browser')
-    );
-    
-    if (isCloudflare) {
-      console.log('⏳ Cloudflare detected, waiting...');
-      await new Promise(r => setTimeout(r, 5000));
-      await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {});
+    const hostname = new URL(url).hostname.replace('www.', '');
+    for (const domain of ALLOWED_DOMAINS) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) return true;
     }
-    
-    const data = await page.evaluate(() => {
-      // Extract date from page
-      let date = null;
-      
-      // Try meta tags
-      const metaDate = document.querySelector('meta[property="article:published_time"], meta[name="date"], meta[name="DC.date"], meta[property="og:updated_time"], meta[name="last-modified"]');
-      if (metaDate) date = metaDate.getAttribute('content');
-      
-      // Try time elements
-      if (!date) {
-        const timeEl = document.querySelector('time[datetime], time[pubdate]');
-        if (timeEl) date = timeEl.getAttribute('datetime') || timeEl.textContent;
-      }
-      
-      // Try common date patterns in text
-      if (!date) {
-        const datePatterns = [
-          /(?:publié|modifié|mis à jour|updated|published|date)[:\s]*(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
-          /(?:publié|modifié|mis à jour|updated|published|date)[:\s]*(\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4})/i,
-          /(\d{1,2}[\/-]\d{1,2}[\/-]\d{4})/,
-          /(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/,
-        ];
-        const bodyText = document.body.innerText.substring(0, 5000);
-        for (const pattern of datePatterns) {
-          const match = bodyText.match(pattern);
-          if (match) {
-            date = match[1];
-            break;
-          }
-        }
-      }
-      
-      // Remove unwanted elements
-      document.querySelectorAll('script, style, nav, footer, header, aside, iframe').forEach(el => el.remove());
-      
-      const title = document.title || '';
-      const main = document.querySelector('main, article, .content, #content, .post-content') || document.body;
-      const content = main.textContent.replace(/\s+/g, ' ').trim().substring(0, 15000);
-      
-      return { title, content, date };
-    });
-    
-    await page.close();
-    
-    console.log(`✅ Extracted: ${data.title.substring(0, 50)}... | Date: ${data.date || 'non trouvée'}`);
-    res.json({ 
-      url, 
-      title: data.title, 
-      content: data.content,
-      date: data.date,
-      extractedAt: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('❌ Extract error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
+    return false;
+  } catch { return false; }
+}
 
 // ============================================================================
-// MULTI-COUNTRY PARALLEL SEARCH
+// ENDPOINT UNIQUE : /ask - Fait tout en un seul appel
 // ============================================================================
 
-app.post('/search-multi', async (req, res) => {
-  const { query, countries = [], maxResultsPerCountry = 5 } = req.body;
+app.post('/ask', async (req, res) => {
+  const { question } = req.body;
+  if (!question) return res.status(400).json({ error: 'Question required' });
   
-  if (!query) {
-    return res.status(400).json({ error: 'Query required' });
-  }
-  
-  if (!countries.length) {
-    return res.status(400).json({ error: 'Countries array required' });
-  }
-  
-  const year = new Date().getFullYear();
-  console.log(`🌍 Multi-country search: "${query}" in ${countries.length} countries (${year})`);
+  console.log('\n🤖 ATLAS FISCAL - Question:', question);
+  const startTime = Date.now();
   
   try {
-    // Recherche parallèle pour chaque pays
-    const searchPromises = countries.map(async (country) => {
-      const countryQuery = `${query} ${country} ${year}`;
-      
-      const b = await getBrowser();
+    const year = new Date().getFullYear();
+    const b = await getBrowser();
+    
+    // PHASE 1: Recherche DuckDuckGo
+    console.log('🔍 Recherche...');
+    const queries = [
+      `${question} ${year}`,
+      `${question} fiscalité ${year}`,
+      `${question} tax rate ${year}`,
+    ];
+    
+    const allResults = [];
+    for (const query of queries) {
       const page = await b.newPage();
-      
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
       
-      const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(countryQuery)}&t=h_&ia=web`;
-      await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-      
-      await page.waitForSelector('[data-testid="result"]', { timeout: 10000 }).catch(() => {});
-      await new Promise(r => setTimeout(r, 1500));
-      
-      const results = await page.evaluate(() => {
-        const items = [];
-        document.querySelectorAll('[data-testid="result"]').forEach((el) => {
-          const link = el.querySelector('a[href]');
-          const title = el.querySelector('h2');
-          const snippet = el.querySelector('[data-result="snippet"]');
-          
-          if (link && title) {
-            items.push({
-              title: title.textContent?.trim() || '',
-              url: link.href,
-              snippet: snippet?.textContent?.trim() || '',
-            });
-          }
+      try {
+        await page.goto(`https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+          waitUntil: 'domcontentloaded',
+          timeout: 15000
         });
-        return items;
-      });
-      
-      await page.close();
-      
-      // Filtrer par whitelist
-      const filtered = filterResults(results).slice(0, maxResultsPerCountry);
-      
-      return {
-        country,
-        results: filtered.map(r => ({ ...r, country })),
-        count: filtered.length
-      };
-    });
-    
-    const allResults = await Promise.all(searchPromises);
-    
-    // Agréger les résultats
-    const aggregated = {
-      query,
-      year,
-      countries: allResults,
-      totalResults: allResults.reduce((sum, c) => sum + c.count, 0),
-      searchedAt: new Date().toISOString()
-    };
-    
-    console.log(`✅ Multi-search complete: ${aggregated.totalResults} results from ${countries.length} countries`);
-    res.json(aggregated);
-    
-  } catch (error) {
-    console.error('❌ Multi-search error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============================================================================
-// PDF EXTRACTION (OCR pour BOFiP, circulaires, etc.)
-// ============================================================================
-
-app.post('/extract-pdf', async (req, res) => {
-  const { url } = req.body;
-  
-  if (!url) {
-    return res.status(400).json({ error: 'URL required' });
-  }
-  
-  if (!isAllowedDomain(url)) {
-    return res.status(403).json({ error: 'Domain not in whitelist' });
-  }
-  
-  console.log('📑 Extracting PDF:', url);
-  
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch PDF');
-    
-    const buffer = await response.arrayBuffer();
-    const data = await pdf(Buffer.from(buffer));
-    
-    // Extract structured content
-    const content = data.text;
-    const numPages = data.numpages;
-    
-    // Try to extract date from PDF metadata or content
-    let date = null;
-    const datePatterns = [
-      /(?:du|en date du|publié le)\s*(\d{1,2}[\/-]\d{1,2}[\/-]\d{4})/i,
-      /(\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{4})/i,
-    ];
-    for (const pattern of datePatterns) {
-      const match = content.match(pattern);
-      if (match) {
-        date = match[1];
-        break;
-      }
-    }
-    
-    console.log(`✅ PDF extracted: ${numPages} pages, date: ${date || 'non trouvée'}`);
-    
-    res.json({
-      url,
-      content: content.substring(0, 50000),
-      numPages,
-      date,
-      extractedAt: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('❌ PDF extraction error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============================================================================
-// STRUCTURED LAW PARSING (Articles, alinéas, références)
-// ============================================================================
-
-app.post('/parse-law', async (req, res) => {
-  const { content } = req.body;
-  
-  if (!content) {
-    return res.status(400).json({ error: 'Content required' });
-  }
-  
-  console.log('⚖️ Parsing law structure...');
-  
-  try {
-    // Extract article numbers
-    const articlePattern = /(?:Article|Art\.?)\s*(\d+(?:[.-]\d+)*(?:\s*[a-zA-Z])?)/gi;
-    const articles = [...content.matchAll(articlePattern)].map(m => m[1]);
-    
-    // Extract alinéas
-    const alineaPattern = /(?:alinéa|al\.?)\s*(\d+)/gi;
-    const alineas = [...content.matchAll(alineaPattern)].map(m => m[1]);
-    
-    // Extract references to other articles
-    const refPattern = /(?:article|art\.?)\s*(\d+(?:[.-]\d+)*)\s*(?:du|de la|de l')\s*(CGI|Code général des impôts|LPF|Livre des procédures fiscales|Code de commerce|Code civil)/gi;
-    const references = [...content.matchAll(refPattern)].map(m => ({
-      article: m[1],
-      code: m[2]
-    }));
-    
-    // Extract law codes mentioned
-    const codePattern = /(CGI|LPF|Code général des impôts|Livre des procédures fiscales|Code de commerce|Code civil|Code du travail|Code monétaire et financier)/gi;
-    const codes = [...new Set([...content.matchAll(codePattern)].map(m => m[1]))];
-    
-    // Extract dates mentioned
-    const datePattern = /(\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{4})/gi;
-    const dates = [...new Set([...content.matchAll(datePattern)].map(m => m[1]))];
-    
-    // Extract monetary amounts
-    const amountPattern = /(\d[\d\s]*(?:,\d+)?\s*(?:€|euros?|EUR))/gi;
-    const amounts = [...content.matchAll(amountPattern)].map(m => m[1].trim());
-    
-    // Extract percentages (tax rates)
-    const ratePattern = /(\d+(?:[.,]\d+)?\s*%)/g;
-    const rates = [...new Set([...content.matchAll(ratePattern)].map(m => m[1]))];
-    
-    res.json({
-      articles: [...new Set(articles)],
-      alineas: [...new Set(alineas)],
-      references,
-      codes,
-      dates,
-      amounts: [...new Set(amounts)].slice(0, 20),
-      rates,
-      structure: {
-        hasArticles: articles.length > 0,
-        hasReferences: references.length > 0,
-        articleCount: new Set(articles).size,
-        referenceCount: references.length
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Parse error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============================================================================
-// JURISPRUDENCE SEARCH (Décisions de justice)
-// ============================================================================
-
-app.post('/search-jurisprudence', async (req, res) => {
-  const { query, maxResults = 10 } = req.body;
-  
-  if (!query) {
-    return res.status(400).json({ error: 'Query required' });
-  }
-  
-  console.log('⚖️ Searching jurisprudence:', query);
-  
-  try {
-    const b = await getBrowser();
-    const page = await b.newPage();
-    
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-    
-    // Search on Légifrance jurisprudence
-    const searchUrl = `https://www.legifrance.gouv.fr/search/juri?tab_selection=juri&searchField=ALL&query=${encodeURIComponent(query)}&searchType=ALL`;
-    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-    
-    await page.waitForSelector('.result-item, .search-result', { timeout: 10000 }).catch(() => {});
-    
-    const results = await page.evaluate(() => {
-      const items = [];
-      document.querySelectorAll('.result-item, .search-result, article').forEach((el) => {
-        const link = el.querySelector('a');
-        const title = el.querySelector('h3, .title, strong');
-        const date = el.querySelector('.date, time, .meta');
-        const court = el.querySelector('.court, .juridiction, .source');
         
-        if (link && title) {
-          items.push({
-            title: title.textContent?.trim() || '',
-            url: link.href,
-            date: date?.textContent?.trim() || null,
-            court: court?.textContent?.trim() || null,
-            type: 'jurisprudence'
+        const results = await page.evaluate(() => {
+          const items = [];
+          document.querySelectorAll('.result').forEach(el => {
+            const link = el.querySelector('a.result__a');
+            const snippet = el.querySelector('.result__snippet');
+            if (link?.href?.startsWith('http')) {
+              items.push({
+                title: link.textContent || '',
+                url: link.href,
+                snippet: snippet?.textContent || '',
+                source: new URL(link.href).hostname.replace('www.', '')
+              });
+            }
           });
+          return items;
+        });
+        
+        allResults.push(...results);
+      } catch (e) {
+        console.log('⚠️ Search error:', e.message);
+      }
+      await page.close();
+    }
+    
+    // Filtrer et dédupliquer
+    const filtered = allResults.filter(r => isAllowed(r.url));
+    const unique = Array.from(new Map(filtered.map(r => [r.url, r])).values()).slice(0, 10);
+    console.log(`📊 ${unique.length} sources officielles trouvées`);
+    
+    // PHASE 2: Extraction du contenu
+    console.log('📄 Extraction...');
+    const sources = [];
+    
+    for (const result of unique.slice(0, 6)) {
+      const page = await b.newPage();
+      try {
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        await page.goto(result.url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        
+        const data = await page.evaluate(() => {
+          // Date
+          let date = null;
+          const metaDate = document.querySelector('meta[property="article:published_time"], meta[name="date"]');
+          if (metaDate) date = metaDate.getAttribute('content');
+          if (!date) {
+            const timeEl = document.querySelector('time[datetime]');
+            if (timeEl) date = timeEl.getAttribute('datetime');
+          }
+          
+          // Content
+          document.querySelectorAll('script, style, nav, footer, header, aside').forEach(el => el.remove());
+          const main = document.querySelector('main, article, .content') || document.body;
+          const content = main.textContent.replace(/\s+/g, ' ').trim().substring(0, 8000);
+          
+          return { title: document.title, content, date };
+        });
+        
+        // Skip Cloudflare pages
+        if (data.title.includes('Just a moment') || data.content.length < 200) {
+          await page.close();
+          continue;
         }
+        
+        sources.push({
+          title: data.title,
+          url: result.url,
+          source: result.source,
+          date: data.date,
+          content: data.content,
+          isRecent: data.date && new Date(data.date) > new Date(Date.now() - 365*24*60*60*1000)
+        });
+        
+        console.log(`   ✅ ${result.source}`);
+      } catch (e) {
+        console.log(`   ❌ ${result.source}: ${e.message}`);
+      }
+      await page.close();
+    }
+    
+    if (sources.length === 0) {
+      return res.json({
+        answer: "❌ Aucune source officielle trouvée pour cette question.",
+        sources: [],
+        confidence: 'low'
       });
-      return items;
+    }
+    
+    // PHASE 3: Synthèse Groq
+    console.log('🤖 Synthèse Groq...');
+    
+    const context = sources.map((s, i) => 
+      `[Source ${i+1}: ${s.title}] (${s.date || 'date inconnue'})\n${s.url}\n${s.content.substring(0, 2000)}`
+    ).join('\n\n---\n\n');
+    
+    const prompt = `Tu es expert fiscal. Réponds précisément à la question.
+
+RÈGLES STRICTES:
+1. Cite TOUJOURS tes sources avec [Source X]
+2. Donne les taux et articles de loi exacts
+3. Si les sources sont anciennes (>1 an), préviens l'utilisateur
+4. Ne jamais inventer d'information
+
+QUESTION: ${question}
+
+SOURCES (${sources.length} documents officiels analysés):
+${context}
+
+Réponds en JSON: {"answer": "ta réponse détaillée avec citations [Source X]", "confidence": "high|medium|low", "keyRates": ["taux trouvés"], "keyArticles": ["articles de loi"]}`;
+
+    const groqResponse = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 4096,
+      }),
     });
     
-    await page.close();
+    const groqData = await groqResponse.json();
     
-    console.log(`✅ Found ${results.length} jurisprudence results`);
-    res.json({ results: results.slice(0, maxResults), count: results.length });
+    if (groqData.error) {
+      console.log('❌ Groq error:', groqData.error.message);
+      return res.json({
+        answer: "Erreur de synthèse IA. Sources disponibles ci-dessous.",
+        sources: sources.map(s => ({ title: s.title, url: s.url, source: s.source, date: s.date, isRecent: s.isRecent })),
+        confidence: 'low'
+      });
+    }
+    
+    const parsed = JSON.parse(groqData.choices?.[0]?.message?.content || '{}');
+    
+    const totalTime = Date.now() - startTime;
+    console.log(`✅ Réponse générée en ${totalTime}ms`);
+    
+    res.json({
+      answer: parsed.answer || "Erreur de parsing",
+      sources: sources.map(s => ({ 
+        title: s.title, 
+        url: s.url, 
+        source: s.source, 
+        date: s.date, 
+        isRecent: s.isRecent 
+      })),
+      confidence: parsed.confidence || 'medium',
+      keyRates: parsed.keyRates || [],
+      keyArticles: parsed.keyArticles || [],
+      stats: {
+        sourcesFound: unique.length,
+        sourcesAnalyzed: sources.length,
+        timeMs: totalTime
+      }
+    });
     
   } catch (error) {
-    console.error('❌ Jurisprudence search error:', error.message);
+    console.error('❌ Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ============================================================================
-// MULTI-QUERY GENERATION (Reformulation intelligente)
-// ============================================================================
-
-app.post('/generate-queries', async (req, res) => {
-  const { question, count = 5 } = req.body;
-  
-  if (!question) {
-    return res.status(400).json({ error: 'Question required' });
-  }
-  
-  console.log('🧠 Generating query variants for:', question);
-  
-  // Generate variants locally (no external API needed)
-  const variants = [];
-  
-  // Original
-  variants.push(question);
-  
-  // Add "France" if not present
-  if (!question.toLowerCase().includes('france')) {
-    variants.push(question + ' France');
-  }
-  
-  // Add legal terms
-  const legalTerms = ['CGI', 'article', 'loi', 'décret', 'BOFiP', 'jurisprudence'];
-  for (const term of legalTerms) {
-    if (!question.toLowerCase().includes(term.toLowerCase())) {
-      variants.push(question + ' ' + term);
-      if (variants.length >= count) break;
-    }
-  }
-  
-  // Add year
-  const currentYear = new Date().getFullYear();
-  if (!question.includes(String(currentYear))) {
-    variants.push(question + ' ' + currentYear);
-  }
-  
-  // Add "taux" for tax questions
-  if (question.toLowerCase().includes('impôt') || question.toLowerCase().includes('taxe')) {
-    variants.push(question + ' taux applicable');
-  }
-  
-  // Synonyms
-  const synonyms = {
-    'impôt': 'fiscalité',
-    'taxe': 'imposition',
-    'société': 'entreprise',
-    'revenu': 'bénéfice',
-  };
-  
-  for (const [word, synonym] of Object.entries(synonyms)) {
-    if (question.toLowerCase().includes(word)) {
-      variants.push(question.replace(new RegExp(word, 'gi'), synonym));
-    }
-  }
-  
-  const uniqueVariants = [...new Set(variants)].slice(0, count);
-  
-  console.log(`✅ Generated ${uniqueVariants.length} query variants`);
-  res.json({ queries: uniqueVariants });
+// Health check
+app.get('/', (req, res) => {
+  res.json({ status: 'Atlas Fiscal API', version: '2.0' });
 });
-
-// ============================================================================
-// CROSS-REFERENCE & CONTRADICTION DETECTION
-// ============================================================================
-
-app.post('/analyze-sources', async (req, res) => {
-  const { sources } = req.body;
-  
-  if (!sources || !Array.isArray(sources)) {
-    return res.status(400).json({ error: 'Sources array required' });
-  }
-  
-  console.log('🔍 Analyzing', sources.length, 'sources for contradictions...');
-  
-  try {
-    const analysis = {
-      totalSources: sources.length,
-      datedSources: 0,
-      recentSources: 0,
-      rates: {},
-      amounts: {},
-      dates: [],
-      contradictions: [],
-      crossReferences: []
-    };
-    
-    const now = new Date();
-    const oneYearAgo = new Date(now.setFullYear(now.getFullYear() - 1));
-    
-    for (const source of sources) {
-      // Check dates
-      if (source.date) {
-        analysis.datedSources++;
-        const sourceDate = new Date(source.date);
-        if (sourceDate >= oneYearAgo) {
-          analysis.recentSources++;
-        }
-        analysis.dates.push({ source: source.title, date: source.date });
-      }
-      
-      // Extract rates from content
-      if (source.content) {
-        const ratePattern = /(\d+(?:[.,]\d+)?)\s*%/g;
-        const rates = [...source.content.matchAll(ratePattern)];
-        for (const rate of rates) {
-          const rateValue = rate[1];
-          if (!analysis.rates[rateValue]) {
-            analysis.rates[rateValue] = [];
-          }
-          analysis.rates[rateValue].push(source.title);
-        }
-      }
-    }
-    
-    // Detect contradictions (different rates for same thing)
-    for (const [rate, sourceTitles] of Object.entries(analysis.rates)) {
-      if (sourceTitles.length > 1) {
-        // Check if other rates exist
-        const otherRates = Object.keys(analysis.rates).filter(r => r !== rate);
-        for (const otherRate of otherRates) {
-          const otherSources = analysis.rates[otherRate];
-          // If sources mention different rates, flag potential contradiction
-          const overlap = sourceTitles.some(s => otherSources.includes(s));
-          if (!overlap && Math.abs(parseFloat(rate) - parseFloat(otherRate)) > 1) {
-            analysis.contradictions.push({
-              type: 'rate_difference',
-              values: [rate + '%', otherRate + '%'],
-              sources: [sourceTitles[0], otherSources[0]],
-              warning: `Taux différents trouvés: ${rate}% vs ${otherRate}%`
-            });
-          }
-        }
-      }
-    }
-    
-    console.log(`✅ Analysis complete: ${analysis.contradictions.length} potential contradictions`);
-    res.json(analysis);
-    
-  } catch (error) {
-    console.error('❌ Analysis error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Atlas Search Backend v3.0 running on port ${PORT}`);
-  console.log(`📋 ${ALL_ALLOWED_DOMAINS.size} whitelisted domains`);
-  console.log(`📑 PDF extraction enabled`);
-  console.log(`⚖️ Law parsing enabled`);
-  console.log(`🔍 Jurisprudence search enabled`);
-});
-
-// Cleanup
-process.on('SIGINT', async () => {
-  if (browser) await browser.close();
-  process.exit();
+  console.log(`🚀 Atlas Fiscal API running on port ${PORT}`);
 });
