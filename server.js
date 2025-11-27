@@ -792,33 +792,86 @@ app.post('/ask', async (req, res) => {
       `[Source ${i+1}: ${s.title}] (${s.date || 'date inconnue'})\n${s.url}\n${s.content.substring(0, 2500)}`
     ).join('\n\n---\n\n');
     
-    const prompt = `Tu es un EXPERT FISCAL de haut niveau, spécialisé en droit fiscal français et international.
+    // Détecter la complexité de la question
+    const complexityIndicators = [
+      'holding', 'filiale', 'prix de transfert', 'établissement stable',
+      'convention', 'retenue', 'ATAD', 'anti-abus', 'restructuration',
+      'fusion', 'apport', 'international', 'transfrontalier'
+    ];
+    const isComplex = complexityIndicators.some(ind => question.toLowerCase().includes(ind));
+    
+    const prompt = `Tu es un EXPERT FISCAL SENIOR avec 20 ans d'expérience en cabinet Big 4.
 
-EXPERTISE:
-- Fiscalité des entreprises (IS, TVA, CET, taxes diverses)
-- Fiscalité des particuliers (IR, IFI, plus-values, successions)
-- Fiscalité internationale (conventions fiscales, prix de transfert, établissements stables)
-- Optimisation fiscale légale et structuration patrimoniale
+TON RÔLE: Fournir une analyse fiscale RIGOUREUSE et PRUDENTE, comme si tu conseillais un client sur un dossier réel.
 
-RÈGLES STRICTES:
-1. CITE TOUJOURS tes sources avec [Source X] - c'est OBLIGATOIRE
-2. Donne les TAUX EXACTS et les ARTICLES DE LOI (CGI, LPF, BOFiP)
-3. Mentionne les SEUILS et CONDITIONS d'application
-4. Si les sources datent de plus d'1 an, PRÉVIENS l'utilisateur
-5. Ne JAMAIS inventer - si tu ne sais pas, dis-le
-6. Structure ta réponse clairement avec des bullet points si nécessaire
+${isComplex ? `
+QUESTION COMPLEXE DÉTECTÉE - ANALYSE APPROFONDIE REQUISE:
+
+STRUCTURE OBLIGATOIRE DE TA RÉPONSE:
+
+1. SYNTHÈSE EXÉCUTIVE
+   Résumé en 2-3 phrases des enjeux principaux.
+
+2. ANALYSE DÉTAILLÉE PAR THÉMATIQUE
+   Pour chaque aspect de la question, développe:
+   - Cadre juridique applicable (articles CGI, directives, conventions)
+   - Taux et seuils en vigueur
+   - Conditions d'application
+
+3. ANALYSE DES RISQUES
+   Pour chaque risque identifié:
+   - Nature du risque (requalification, redressement, pénalités)
+   - Probabilité: Faible / Moyenne / Élevée
+   - Impact financier potentiel: estimation si possible
+   - Facteurs aggravants ou atténuants
+
+4. POINTS DE VIGILANCE
+   - Zones grises ou incertitudes juridiques
+   - Évolutions législatives récentes ou attendues
+   - Positions administratives (BOFiP, rescrits)
+
+5. RECOMMANDATIONS OPÉRATIONNELLES
+   Actions concrètes à mettre en œuvre:
+   - Documentation à préparer
+   - Analyses à réaliser
+   - Consultations recommandées (avocat fiscaliste, ruling, etc.)
+
+6. SUBSTANCE ÉCONOMIQUE
+   Si pertinent, analyse des critères de substance:
+   - Présence physique et moyens humains
+   - Prise de décision effective
+   - Valeur ajoutée réelle
+` : `
+QUESTION STANDARD - RÉPONSE CLAIRE ET PRÉCISE:
+
+Structure ta réponse de manière claire avec:
+- Les taux et montants exacts
+- Les articles de loi applicables
+- Les conditions et seuils
+- Les points d'attention éventuels
+`}
+
+RÈGLES ABSOLUES:
+1. CITE TOUJOURS tes sources [Source X] - OBLIGATOIRE
+2. JAMAIS d'astérisques (*) dans ta réponse - utilise des tirets (-) ou des numéros
+3. TONALITÉ PRUDENTE: utilise "il convient de", "il est recommandé de", "attention à"
+4. Si information incertaine ou incomplète: DIS-LE CLAIREMENT
+5. Ne JAMAIS inventer de chiffres ou d'articles
+6. Si la question dépasse les sources disponibles: recommande une consultation spécialisée
 
 QUESTION: ${question}
 
-SOURCES OFFICIELLES ANALYSÉES (${sources.length}):
+SOURCES OFFICIELLES (${sources.length}):
 ${context}
 
 Réponds en JSON:
 {
-  "answer": "Réponse détaillée et structurée avec citations [Source X]",
+  "answer": "Réponse structurée SANS astérisques, avec citations [Source X]",
   "confidence": "high|medium|low",
-  "keyRates": ["taux trouvés avec leur contexte"],
-  "keyArticles": ["articles de loi cités"]
+  "keyRates": ["taux avec contexte"],
+  "keyArticles": ["articles de loi"],
+  "risks": ${isComplex ? '[{"risk": "description", "probability": "Faible|Moyenne|Élevée", "impact": "description"}]' : '[]'},
+  "actions": ${isComplex ? '["action recommandée 1", "action 2"]' : '[]'}
 }`;
 
     const openaiResponse = await fetch(OPENAI_URL, {
@@ -858,6 +911,9 @@ Réponds en JSON:
       confidence: parsed.confidence || 'medium',
       keyRates: parsed.keyRates || [],
       keyArticles: parsed.keyArticles || [],
+      risks: parsed.risks || [],
+      actions: parsed.actions || [],
+      isComplex,
       stats: { sourcesFound: unique.length, sourcesAnalyzed: sources.length, timeMs: totalTime }
     });
     
