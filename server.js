@@ -864,15 +864,17 @@ QUESTION: ${question}
 SOURCES OFFICIELLES (${sources.length}):
 ${context}
 
-Réponds en JSON:
+Réponds en JSON avec UNIQUEMENT des strings (pas d'objets imbriqués):
 {
-  "answer": "Réponse structurée SANS astérisques, avec citations [Source X]",
+  "answer": "Ta réponse complète en TEXTE SIMPLE. Utilise des retours à la ligne pour structurer. JAMAIS d'objets, UNIQUEMENT du texte.",
   "confidence": "high|medium|low",
-  "keyRates": ["taux avec contexte"],
-  "keyArticles": ["articles de loi"],
-  "risks": ${isComplex ? '[{"risk": "description", "probability": "Faible|Moyenne|Élevée", "impact": "description"}]' : '[]'},
-  "actions": ${isComplex ? '["action recommandée 1", "action 2"]' : '[]'}
-}`;
+  "keyRates": ["25% IS", "15% retenue source"],
+  "keyArticles": ["Article 219 CGI", "Article 10 convention"],
+  "risks": ${isComplex ? '[{"risk": "Description du risque en texte", "probability": "Faible|Moyenne|Élevée", "impact": "Description impact en texte"}]' : '[]'},
+  "actions": ${isComplex ? '["Action 1 en texte simple", "Action 2 en texte simple"]' : '[]'}
+}
+
+IMPORTANT: Tous les champs doivent être des STRINGS simples, jamais des objets imbriqués !`;
 
     const openaiResponse = await fetch(OPENAI_URL, {
       method: 'POST',
@@ -905,21 +907,41 @@ Réponds en JSON:
     
     console.log(`✅ Réponse en ${totalTime}ms`);
     
+    // Fonction pour convertir tout en string
+    const stringify = (val) => {
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'string') return val;
+      if (typeof val === 'object') {
+        return Object.entries(val).map(([k, v]) => `${k}: ${stringify(v)}`).join('\n');
+      }
+      return String(val);
+    };
+    
     // S'assurer que answer est une string
-    let answer = parsed.answer || "Erreur";
-    if (typeof answer === 'object') {
-      // Si l'IA a retourné un objet structuré, le convertir en texte
-      answer = Object.entries(answer).map(([key, val]) => `${key}\n${val}`).join('\n\n');
-    }
+    let answer = stringify(parsed.answer) || "Erreur";
+    
+    // Nettoyer les risks pour s'assurer que ce sont des strings
+    const risks = (parsed.risks || []).map(r => ({
+      risk: stringify(r.risk || r),
+      probability: stringify(r.probability) || 'Moyenne',
+      impact: stringify(r.impact) || ''
+    }));
+    
+    // Nettoyer les actions
+    const actions = (parsed.actions || []).map(a => stringify(a));
+    
+    // Nettoyer keyRates et keyArticles
+    const keyRates = (parsed.keyRates || []).map(r => stringify(r));
+    const keyArticles = (parsed.keyArticles || []).map(a => stringify(a));
     
     res.json({
       answer,
       sources: sources.map(s => ({ title: s.title, url: s.url, source: s.source, date: s.date, isRecent: s.isRecent })),
       confidence: parsed.confidence || 'medium',
-      keyRates: parsed.keyRates || [],
-      keyArticles: parsed.keyArticles || [],
-      risks: parsed.risks || [],
-      actions: parsed.actions || [],
+      keyRates,
+      keyArticles,
+      risks,
+      actions,
       isComplex,
       stats: { sourcesFound: unique.length, sourcesAnalyzed: sources.length, timeMs: totalTime }
     });
