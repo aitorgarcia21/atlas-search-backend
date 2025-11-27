@@ -642,8 +642,8 @@ app.post('/analyze-sources', async (req, res) => {
 // ENDPOINT UNIFIÉ /ask - Fait tout en un seul appel
 // ============================================================================
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
+const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
 
 app.post('/ask', async (req, res) => {
   const { question } = req.body;
@@ -774,14 +774,14 @@ ${context}
 
 JSON: {"answer": "réponse avec [Source X]", "confidence": "high|medium|low", "keyRates": [], "keyArticles": []}`;
 
-    const groqResponse = await fetch(GROQ_URL, {
+    const mistralResponse = await fetch(MISTRAL_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${MISTRAL_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'mistral-large-latest',
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
         temperature: 0.1,
@@ -789,10 +789,10 @@ JSON: {"answer": "réponse avec [Source X]", "confidence": "high|medium|low", "k
       }),
     });
     
-    const groqData = await groqResponse.json();
+    const mistralData = await mistralResponse.json();
     
-    if (groqData.error) {
-      console.log('❌ Groq error:', groqData.error.message);
+    if (mistralData.error) {
+      console.log('❌ Mistral error:', mistralData.error?.message || mistralData.error);
       return res.json({
         answer: "Erreur IA. Sources ci-dessous.",
         sources: sources.map(s => ({ title: s.title, url: s.url, source: s.source, date: s.date, isRecent: s.isRecent })),
@@ -800,7 +800,7 @@ JSON: {"answer": "réponse avec [Source X]", "confidence": "high|medium|low", "k
       });
     }
     
-    const parsed = JSON.parse(groqData.choices?.[0]?.message?.content || '{}');
+    const parsed = JSON.parse(mistralData.choices?.[0]?.message?.content || '{}');
     const totalTime = Date.now() - startTime;
     
     console.log(`✅ Réponse en ${totalTime}ms`);
