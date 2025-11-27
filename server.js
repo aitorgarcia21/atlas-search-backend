@@ -1,12 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import puppeteer from 'puppeteer';
+import { isAllowedDomain, filterResults, ALL_ALLOWED_DOMAINS } from './whitelist.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 let browser = null;
+
+console.log(`📋 Whitelist loaded: ${ALL_ALLOWED_DOMAINS.size} domains authorized`);
 
 async function getBrowser() {
   if (!browser) {
@@ -26,7 +29,27 @@ async function getBrowser() {
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', service: 'Atlas Search Backend' });
+  res.json({ 
+    status: 'ok', 
+    service: 'Atlas Search Backend',
+    whitelistedDomains: ALL_ALLOWED_DOMAINS.size,
+    version: '2.0.0'
+  });
+});
+
+// Get whitelist info
+app.get('/whitelist', (req, res) => {
+  res.json({
+    totalDomains: ALL_ALLOWED_DOMAINS.size,
+    domains: Array.from(ALL_ALLOWED_DOMAINS).sort()
+  });
+});
+
+// Check if domain is allowed
+app.get('/check/:domain', (req, res) => {
+  const domain = req.params.domain;
+  const allowed = isAllowedDomain('https://' + domain);
+  res.json({ domain, allowed });
 });
 
 // Web Search
@@ -75,8 +98,15 @@ app.post('/search', async (req, res) => {
     
     await page.close();
     
-    console.log(`✅ Found ${results.length} results`);
-    res.json({ results: results.slice(0, maxResults), count: results.length });
+    // Filter to only allowed domains
+    const filteredResults = filterResults(results);
+    
+    console.log(`✅ Found ${results.length} results, ${filteredResults.length} from authorized sources`);
+    res.json({ 
+      results: filteredResults.slice(0, maxResults), 
+      count: filteredResults.length,
+      totalFound: results.length 
+    });
     
   } catch (error) {
     console.error('❌ Search error:', error.message);
@@ -90,6 +120,12 @@ app.post('/extract', async (req, res) => {
   
   if (!url) {
     return res.status(400).json({ error: 'URL required' });
+  }
+  
+  // Check if domain is allowed
+  if (!isAllowedDomain(url)) {
+    console.log('⛔ Blocked domain:', url);
+    return res.status(403).json({ error: 'Domain not in whitelist' });
   }
   
   console.log('📄 Extracting:', url);
