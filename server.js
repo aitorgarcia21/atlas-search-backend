@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import puppeteer from 'puppeteer';
+import pdf from 'pdf-parse/lib/pdf-parse.js';
 import { isAllowedDomain, filterResults, ALL_ALLOWED_DOMAINS } from './whitelist.js';
 
 const app = express();
@@ -196,10 +197,343 @@ app.post('/extract', async (req, res) => {
   }
 });
 
+// ============================================================================
+// PDF EXTRACTION (OCR pour BOFiP, circulaires, etc.)
+// ============================================================================
+
+app.post('/extract-pdf', async (req, res) => {
+  const { url } = req.body;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL required' });
+  }
+  
+  if (!isAllowedDomain(url)) {
+    return res.status(403).json({ error: 'Domain not in whitelist' });
+  }
+  
+  console.log('📑 Extracting PDF:', url);
+  
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch PDF');
+    
+    const buffer = await response.arrayBuffer();
+    const data = await pdf(Buffer.from(buffer));
+    
+    // Extract structured content
+    const content = data.text;
+    const numPages = data.numpages;
+    
+    // Try to extract date from PDF metadata or content
+    let date = null;
+    const datePatterns = [
+      /(?:du|en date du|publié le)\s*(\d{1,2}[\/-]\d{1,2}[\/-]\d{4})/i,
+      /(\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{4})/i,
+    ];
+    for (const pattern of datePatterns) {
+      const match = content.match(pattern);
+      if (match) {
+        date = match[1];
+        break;
+      }
+    }
+    
+    console.log(`✅ PDF extracted: ${numPages} pages, date: ${date || 'non trouvée'}`);
+    
+    res.json({
+      url,
+      content: content.substring(0, 50000),
+      numPages,
+      date,
+      extractedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ PDF extraction error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// STRUCTURED LAW PARSING (Articles, alinéas, références)
+// ============================================================================
+
+app.post('/parse-law', async (req, res) => {
+  const { content } = req.body;
+  
+  if (!content) {
+    return res.status(400).json({ error: 'Content required' });
+  }
+  
+  console.log('⚖️ Parsing law structure...');
+  
+  try {
+    // Extract article numbers
+    const articlePattern = /(?:Article|Art\.?)\s*(\d+(?:[.-]\d+)*(?:\s*[a-zA-Z])?)/gi;
+    const articles = [...content.matchAll(articlePattern)].map(m => m[1]);
+    
+    // Extract alinéas
+    const alineaPattern = /(?:alinéa|al\.?)\s*(\d+)/gi;
+    const alineas = [...content.matchAll(alineaPattern)].map(m => m[1]);
+    
+    // Extract references to other articles
+    const refPattern = /(?:article|art\.?)\s*(\d+(?:[.-]\d+)*)\s*(?:du|de la|de l')\s*(CGI|Code général des impôts|LPF|Livre des procédures fiscales|Code de commerce|Code civil)/gi;
+    const references = [...content.matchAll(refPattern)].map(m => ({
+      article: m[1],
+      code: m[2]
+    }));
+    
+    // Extract law codes mentioned
+    const codePattern = /(CGI|LPF|Code général des impôts|Livre des procédures fiscales|Code de commerce|Code civil|Code du travail|Code monétaire et financier)/gi;
+    const codes = [...new Set([...content.matchAll(codePattern)].map(m => m[1]))];
+    
+    // Extract dates mentioned
+    const datePattern = /(\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{4})/gi;
+    const dates = [...new Set([...content.matchAll(datePattern)].map(m => m[1]))];
+    
+    // Extract monetary amounts
+    const amountPattern = /(\d[\d\s]*(?:,\d+)?\s*(?:€|euros?|EUR))/gi;
+    const amounts = [...content.matchAll(amountPattern)].map(m => m[1].trim());
+    
+    // Extract percentages (tax rates)
+    const ratePattern = /(\d+(?:[.,]\d+)?\s*%)/g;
+    const rates = [...new Set([...content.matchAll(ratePattern)].map(m => m[1]))];
+    
+    res.json({
+      articles: [...new Set(articles)],
+      alineas: [...new Set(alineas)],
+      references,
+      codes,
+      dates,
+      amounts: [...new Set(amounts)].slice(0, 20),
+      rates,
+      structure: {
+        hasArticles: articles.length > 0,
+        hasReferences: references.length > 0,
+        articleCount: new Set(articles).size,
+        referenceCount: references.length
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Parse error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// JURISPRUDENCE SEARCH (Décisions de justice)
+// ============================================================================
+
+app.post('/search-jurisprudence', async (req, res) => {
+  const { query, maxResults = 10 } = req.body;
+  
+  if (!query) {
+    return res.status(400).json({ error: 'Query required' });
+  }
+  
+  console.log('⚖️ Searching jurisprudence:', query);
+  
+  try {
+    const b = await getBrowser();
+    const page = await b.newPage();
+    
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    
+    // Search on Légifrance jurisprudence
+    const searchUrl = `https://www.legifrance.gouv.fr/search/juri?tab_selection=juri&searchField=ALL&query=${encodeURIComponent(query)}&searchType=ALL`;
+    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+    
+    await page.waitForSelector('.result-item, .search-result', { timeout: 10000 }).catch(() => {});
+    
+    const results = await page.evaluate(() => {
+      const items = [];
+      document.querySelectorAll('.result-item, .search-result, article').forEach((el) => {
+        const link = el.querySelector('a');
+        const title = el.querySelector('h3, .title, strong');
+        const date = el.querySelector('.date, time, .meta');
+        const court = el.querySelector('.court, .juridiction, .source');
+        
+        if (link && title) {
+          items.push({
+            title: title.textContent?.trim() || '',
+            url: link.href,
+            date: date?.textContent?.trim() || null,
+            court: court?.textContent?.trim() || null,
+            type: 'jurisprudence'
+          });
+        }
+      });
+      return items;
+    });
+    
+    await page.close();
+    
+    console.log(`✅ Found ${results.length} jurisprudence results`);
+    res.json({ results: results.slice(0, maxResults), count: results.length });
+    
+  } catch (error) {
+    console.error('❌ Jurisprudence search error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// MULTI-QUERY GENERATION (Reformulation intelligente)
+// ============================================================================
+
+app.post('/generate-queries', async (req, res) => {
+  const { question, count = 5 } = req.body;
+  
+  if (!question) {
+    return res.status(400).json({ error: 'Question required' });
+  }
+  
+  console.log('🧠 Generating query variants for:', question);
+  
+  // Generate variants locally (no external API needed)
+  const variants = [];
+  
+  // Original
+  variants.push(question);
+  
+  // Add "France" if not present
+  if (!question.toLowerCase().includes('france')) {
+    variants.push(question + ' France');
+  }
+  
+  // Add legal terms
+  const legalTerms = ['CGI', 'article', 'loi', 'décret', 'BOFiP', 'jurisprudence'];
+  for (const term of legalTerms) {
+    if (!question.toLowerCase().includes(term.toLowerCase())) {
+      variants.push(question + ' ' + term);
+      if (variants.length >= count) break;
+    }
+  }
+  
+  // Add year
+  const currentYear = new Date().getFullYear();
+  if (!question.includes(String(currentYear))) {
+    variants.push(question + ' ' + currentYear);
+  }
+  
+  // Add "taux" for tax questions
+  if (question.toLowerCase().includes('impôt') || question.toLowerCase().includes('taxe')) {
+    variants.push(question + ' taux applicable');
+  }
+  
+  // Synonyms
+  const synonyms = {
+    'impôt': 'fiscalité',
+    'taxe': 'imposition',
+    'société': 'entreprise',
+    'revenu': 'bénéfice',
+  };
+  
+  for (const [word, synonym] of Object.entries(synonyms)) {
+    if (question.toLowerCase().includes(word)) {
+      variants.push(question.replace(new RegExp(word, 'gi'), synonym));
+    }
+  }
+  
+  const uniqueVariants = [...new Set(variants)].slice(0, count);
+  
+  console.log(`✅ Generated ${uniqueVariants.length} query variants`);
+  res.json({ queries: uniqueVariants });
+});
+
+// ============================================================================
+// CROSS-REFERENCE & CONTRADICTION DETECTION
+// ============================================================================
+
+app.post('/analyze-sources', async (req, res) => {
+  const { sources } = req.body;
+  
+  if (!sources || !Array.isArray(sources)) {
+    return res.status(400).json({ error: 'Sources array required' });
+  }
+  
+  console.log('🔍 Analyzing', sources.length, 'sources for contradictions...');
+  
+  try {
+    const analysis = {
+      totalSources: sources.length,
+      datedSources: 0,
+      recentSources: 0,
+      rates: {},
+      amounts: {},
+      dates: [],
+      contradictions: [],
+      crossReferences: []
+    };
+    
+    const now = new Date();
+    const oneYearAgo = new Date(now.setFullYear(now.getFullYear() - 1));
+    
+    for (const source of sources) {
+      // Check dates
+      if (source.date) {
+        analysis.datedSources++;
+        const sourceDate = new Date(source.date);
+        if (sourceDate >= oneYearAgo) {
+          analysis.recentSources++;
+        }
+        analysis.dates.push({ source: source.title, date: source.date });
+      }
+      
+      // Extract rates from content
+      if (source.content) {
+        const ratePattern = /(\d+(?:[.,]\d+)?)\s*%/g;
+        const rates = [...source.content.matchAll(ratePattern)];
+        for (const rate of rates) {
+          const rateValue = rate[1];
+          if (!analysis.rates[rateValue]) {
+            analysis.rates[rateValue] = [];
+          }
+          analysis.rates[rateValue].push(source.title);
+        }
+      }
+    }
+    
+    // Detect contradictions (different rates for same thing)
+    for (const [rate, sourceTitles] of Object.entries(analysis.rates)) {
+      if (sourceTitles.length > 1) {
+        // Check if other rates exist
+        const otherRates = Object.keys(analysis.rates).filter(r => r !== rate);
+        for (const otherRate of otherRates) {
+          const otherSources = analysis.rates[otherRate];
+          // If sources mention different rates, flag potential contradiction
+          const overlap = sourceTitles.some(s => otherSources.includes(s));
+          if (!overlap && Math.abs(parseFloat(rate) - parseFloat(otherRate)) > 1) {
+            analysis.contradictions.push({
+              type: 'rate_difference',
+              values: [rate + '%', otherRate + '%'],
+              sources: [sourceTitles[0], otherSources[0]],
+              warning: `Taux différents trouvés: ${rate}% vs ${otherRate}%`
+            });
+          }
+        }
+      }
+    }
+    
+    console.log(`✅ Analysis complete: ${analysis.contradictions.length} potential contradictions`);
+    res.json(analysis);
+    
+  } catch (error) {
+    console.error('❌ Analysis error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Atlas Search Backend running on port ${PORT}`);
+  console.log(`🚀 Atlas Search Backend v3.0 running on port ${PORT}`);
+  console.log(`📋 ${ALL_ALLOWED_DOMAINS.size} whitelisted domains`);
+  console.log(`📑 PDF extraction enabled`);
+  console.log(`⚖️ Law parsing enabled`);
+  console.log(`🔍 Jurisprudence search enabled`);
 });
 
 // Cleanup
