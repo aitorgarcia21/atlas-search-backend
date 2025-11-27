@@ -89,15 +89,22 @@ app.post('/ask', async (req, res) => {
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
       
       try {
-        await page.goto(`https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
-          waitUntil: 'domcontentloaded',
-          timeout: 15000
+        const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+        console.log('   🔗 URL:', searchUrl);
+        
+        await page.goto(searchUrl, {
+          waitUntil: 'networkidle2',
+          timeout: 20000
         });
+        
+        // Debug
+        const html = await page.content();
+        console.log('   📄 HTML length:', html.length, '| Has results:', html.includes('result__a'));
         
         const results = await page.evaluate(() => {
           const items = [];
-          document.querySelectorAll('.result').forEach(el => {
-            const link = el.querySelector('a.result__a');
+          document.querySelectorAll('.result, .results_links_deep').forEach(el => {
+            const link = el.querySelector('a.result__a, a.result__url');
             const snippet = el.querySelector('.result__snippet');
             if (link?.href?.startsWith('http')) {
               items.push({
@@ -111,6 +118,7 @@ app.post('/ask', async (req, res) => {
           return items;
         });
         
+        console.log('   📊 Raw results:', results.length);
         allResults.push(...results);
       } catch (e) {
         console.log('⚠️ Search error:', e.message);
