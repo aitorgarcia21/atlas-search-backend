@@ -46,24 +46,24 @@ app.post('/search', async (req, res) => {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1280, height: 800 });
     
-    // Google Search
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=fr&num=${maxResults}`;
-    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // DuckDuckGo Search (more permissive)
+    const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`;
+    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
     
-    // Wait for results
-    await page.waitForSelector('div#search', { timeout: 10000 }).catch(() => {});
+    // Wait for results to load
+    await page.waitForSelector('[data-testid="result"]', { timeout: 15000 }).catch(() => {});
+    await new Promise(r => setTimeout(r, 2000)); // Extra wait for JS
     
     // Extract results
     const results = await page.evaluate(() => {
       const items = [];
-      document.querySelectorAll('div.g').forEach((el) => {
-        const link = el.querySelector('a');
-        const title = el.querySelector('h3');
-        const snippet = el.querySelector('div[data-sncf]') || el.querySelector('div.VwiC3b') || el.querySelector('span.st');
+      document.querySelectorAll('[data-testid="result"]').forEach((el) => {
+        const link = el.querySelector('a[data-testid="result-title-a"]');
+        const snippet = el.querySelector('[data-result="snippet"]');
         
-        if (link && title && link.href && link.href.startsWith('http') && !link.href.includes('google.com')) {
+        if (link && link.href && link.href.startsWith('http')) {
           items.push({
-            title: title.textContent || '',
+            title: link.textContent || '',
             url: link.href,
             snippet: snippet ? snippet.textContent : '',
             source: new URL(link.href).hostname.replace('www.', '')
