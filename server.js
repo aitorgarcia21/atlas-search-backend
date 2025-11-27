@@ -656,36 +656,73 @@ app.post('/ask', async (req, res) => {
     const year = new Date().getFullYear();
     const b = await getBrowser();
     
-    // PHASE 1: Recherche (une seule requête comme /search)
-    console.log('🔍 Phase 1: Recherche...');
-    const fullQuery = `${question} ${year}`;
+    // PHASE 1: Recherches PARALLÈLES (plusieurs requêtes en même temps)
+    console.log('🔍 Phase 1: Recherches parallèles...');
     
-    const page = await b.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1280, height: 800 });
+    // Extraire les mots-clés fiscaux de la question
+    const fiscalKeywords = [
+      'prix de transfert', 'transfer pricing',
+      'retenue à la source', 'withholding tax',
+      'établissement stable', 'permanent establishment',
+      'ATAD', 'anti-abus',
+      'dividendes', 'holding',
+      'convention fiscale', 'double imposition'
+    ];
     
-    const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(fullQuery)}&t=h_&ia=web`;
-    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-    await page.waitForSelector('[data-testid="result"]', { timeout: 15000 }).catch(() => {});
-    await new Promise(r => setTimeout(r, 2000));
+    // Générer des requêtes ciblées
+    const queries = [`${question.substring(0, 100)} ${year}`];
     
-    const allResults = await page.evaluate(() => {
-      const items = [];
-      document.querySelectorAll('[data-testid="result"]').forEach((el) => {
-        const link = el.querySelector('a[data-testid="result-title-a"]');
-        const snippet = el.querySelector('[data-result="snippet"]');
-        if (link?.href?.startsWith('http')) {
-          items.push({
-            title: link.textContent || '',
-            url: link.href,
-            snippet: snippet?.textContent || '',
-            source: new URL(link.href).hostname.replace('www.', '')
+    // Ajouter des requêtes pour chaque mot-clé trouvé
+    for (const kw of fiscalKeywords) {
+      if (question.toLowerCase().includes(kw.split(' ')[0])) {
+        queries.push(`${kw} France Allemagne ${year}`);
+      }
+    }
+    
+    // Limiter à 4 requêtes max
+    const limitedQueries = queries.slice(0, 4);
+    console.log(`   📝 ${limitedQueries.length} requêtes générées`);
+    
+    // Fonction de recherche
+    const searchQuery = async (query) => {
+      const page = await b.newPage();
+      try {
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setViewport({ width: 1280, height: 800 });
+        
+        const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`;
+        await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 20000 });
+        await page.waitForSelector('[data-testid="result"]', { timeout: 10000 }).catch(() => {});
+        await new Promise(r => setTimeout(r, 1500));
+        
+        const results = await page.evaluate(() => {
+          const items = [];
+          document.querySelectorAll('[data-testid="result"]').forEach((el) => {
+            const link = el.querySelector('a[data-testid="result-title-a"]');
+            const snippet = el.querySelector('[data-result="snippet"]');
+            if (link?.href?.startsWith('http')) {
+              items.push({
+                title: link.textContent || '',
+                url: link.href,
+                snippet: snippet?.textContent || '',
+                source: new URL(link.href).hostname.replace('www.', '')
+              });
+            }
           });
-        }
-      });
-      return items;
-    });
-    await page.close();
+          return items;
+        });
+        
+        await page.close();
+        return results;
+      } catch (e) {
+        await page.close().catch(() => {});
+        return [];
+      }
+    };
+    
+    // Lancer toutes les recherches en parallèle
+    const searchResults = await Promise.all(limitedQueries.map(searchQuery));
+    const allResults = searchResults.flat();
     
     // Filtrer whitelist et dédupliquer
     const filtered = filterResults(allResults);
