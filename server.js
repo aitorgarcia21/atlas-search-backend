@@ -905,8 +905,15 @@ Réponds en JSON:
     
     console.log(`✅ Réponse en ${totalTime}ms`);
     
+    // S'assurer que answer est une string
+    let answer = parsed.answer || "Erreur";
+    if (typeof answer === 'object') {
+      // Si l'IA a retourné un objet structuré, le convertir en texte
+      answer = Object.entries(answer).map(([key, val]) => `${key}\n${val}`).join('\n\n');
+    }
+    
     res.json({
-      answer: parsed.answer || "Erreur",
+      answer,
       sources: sources.map(s => ({ title: s.title, url: s.url, source: s.source, date: s.date, isRecent: s.isRecent })),
       confidence: parsed.confidence || 'medium',
       keyRates: parsed.keyRates || [],
