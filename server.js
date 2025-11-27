@@ -671,15 +671,18 @@ app.post('/ask', async (req, res) => {
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       
       try {
-        // Version HTML de DuckDuckGo (plus stable)
-        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
-        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        // Même code que /search qui fonctionne
+        await page.setViewport({ width: 1280, height: 800 });
+        const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(q)}&t=h_&ia=web`;
+        await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+        await page.waitForSelector('[data-testid="result"]', { timeout: 15000 }).catch(() => {});
+        await new Promise(r => setTimeout(r, 2000));
         
         const results = await page.evaluate(() => {
           const items = [];
-          document.querySelectorAll('.result').forEach((el) => {
-            const link = el.querySelector('a.result__a');
-            const snippet = el.querySelector('.result__snippet');
+          document.querySelectorAll('[data-testid="result"]').forEach((el) => {
+            const link = el.querySelector('a[data-testid="result-title-a"]');
+            const snippet = el.querySelector('[data-result="snippet"]');
             if (link?.href?.startsWith('http')) {
               items.push({
                 title: link.textContent || '',
