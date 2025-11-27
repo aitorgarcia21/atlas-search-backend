@@ -909,11 +909,11 @@ Réponds en JSON (UNIQUEMENT des strings, pas d'objets imbriqués):
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
-        temperature: 0.1,
-        max_tokens: 4096,
+        temperature: 0.2,
+        max_tokens: 8192,
       }),
     });
     
