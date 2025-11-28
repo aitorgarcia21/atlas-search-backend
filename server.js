@@ -647,197 +647,179 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
-// Base de connaissances fiscales françaises
-const FISCAL_KNOWLEDGE = `
-=== RÈGLES FISCALES FRANÇAISES 2024-2025 ===
+// Fonction de recherche web réutilisable
+async function webSearch(query, maxResults = 5) {
+  console.log(`🔍 Recherche: "${query}"`);
+  const b = await getBrowser();
+  const page = await b.newPage();
+  
+  try {
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`;
+    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+    await page.waitForSelector('[data-testid="result"]', { timeout: 8000 }).catch(() => {});
+    
+    const results = await page.evaluate(() => {
+      const items = document.querySelectorAll('[data-testid="result"]');
+      return Array.from(items).slice(0, 10).map(item => {
+        const link = item.querySelector('a[data-testid="result-title-a"]');
+        const snippet = item.querySelector('[data-result="snippet"]');
+        return {
+          title: link?.textContent?.trim() || '',
+          url: link?.href || '',
+          snippet: snippet?.textContent?.trim() || ''
+        };
+      }).filter(r => r.url && r.title);
+    });
+    
+    await page.close();
+    
+    // Filtrer par whitelist
+    const filtered = results.filter(r => {
+      try {
+        const domain = new URL(r.url).hostname.replace('www.', '');
+        return isAllowedDomain(domain);
+      } catch { return false; }
+    }).slice(0, maxResults);
+    
+    console.log(`   → ${filtered.length} résultats filtrés`);
+    return filtered;
+  } catch (e) {
+    await page.close().catch(() => {});
+    console.log(`   → Erreur: ${e.message}`);
+    return [];
+  }
+}
 
-[IMPÔT SUR LES SOCIÉTÉS]
-- Taux normal IS: 25% (article 219-I CGI)
-- Taux PME: 15% jusqu'à 42 500€ de bénéfice (CA < 10M€)
-- Contribution sociale: 3,3% sur IS > 763 000€
+// Fonction d'extraction de contenu
+async function extractContent(url, maxChars = 3000) {
+  console.log(`📄 Extraction: ${url}`);
+  const b = await getBrowser();
+  const page = await b.newPage();
+  
+  try {
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+    
+    const content = await page.evaluate(() => {
+      const selectors = ['article', 'main', '.content', '#content', '.post-content', 'body'];
+      for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (el && el.innerText.length > 200) {
+          return el.innerText.replace(/\s+/g, ' ').trim();
+        }
+      }
+      return document.body?.innerText?.replace(/\s+/g, ' ').trim() || '';
+    });
+    
+    await page.close();
+    return content.slice(0, maxChars);
+  } catch (e) {
+    await page.close().catch(() => {});
+    return '';
+  }
+}
 
-[TVA]
-- Taux normal: 20%
-- Taux intermédiaire: 10%
-- Taux réduit: 5,5%
-- Taux super-réduit: 2,1%
+// Agent de raisonnement
+async function agentReasoning(question, openaiKey) {
+  const planPrompt = `Tu es un agent de recherche fiscale. Analyse cette question et génère un PLAN DE RECHERCHE.
 
-[TVA INTERNATIONALE]
-- LIC (Livraison Intracommunautaire): exonération article 262 ter I CGI
-- AIC (Acquisition Intracommunautaire): autoliquidation
-- Services B2B UE: autoliquidation pays du preneur (article 259-1° CGI)
-- Services B2B pays tiers vers France: autoliquidation en France (article 283-2 CGI)
-- Importations: TVA à l'importation (article 293 A CGI)
+QUESTION: ${question}
 
-[BREXIT - RÈGLES UK DEPUIS 01/01/2021]
-- UK = PAYS TIERS (hors UE)
-- Irlande du Nord = marché unique UE pour BIENS uniquement (Protocole Windsor)
-- Code TVA Irlande du Nord: XI (pas GB)
-- Directive mère-fille UE: NE S'APPLIQUE PLUS France-UK
-- Directive ATAD: NE S'APPLIQUE PLUS au UK
-- Services UK→France B2B: AUTOLIQUIDATION en France (pas exonération!)
+Génère une liste de 3-5 recherches web spécifiques à effectuer pour répondre complètement.
+Chaque recherche doit être précise et ciblée.
 
-[RÉGIME MÈRE-FILLE FRANÇAIS]
-- Article 145 CGI: exonération dividendes reçus
-- Conditions: détention ≥5%, conservation 2 ans, engagement
-- Quote-part de frais: 5% réintégrée (donc exonération 95%)
-- S'applique aux dividendes de filiales UE ET pays tiers (dont UK)
+Réponds en JSON:
+{
+  "analysis": "Brève analyse des points à traiter",
+  "searches": [
+    "recherche 1 précise",
+    "recherche 2 précise",
+    "recherche 3 précise"
+  ]
+}`;
 
-[RETENUES À LA SOURCE]
-- Dividendes FR→étranger: 25% (réduit par conventions)
-- Dividendes UK→France: 0% (législation UK domestique, pas besoin de convention)
-- Intérêts FR→étranger: 0% en général
-- Redevances FR→étranger: 25% (réduit par conventions)
-
-[PRIX DE TRANSFERT]
-- Article 57 CGI: principe de pleine concurrence
-- Documentation obligatoire si: CA ≥ 400M€ ou actifs ≥ 400M€ ou détention ≥50% entité étrangère > seuils
-- Déclaration 2257: obligatoire si transactions > 100 000€ par catégorie
-- Méthodes OCDE: CUP, prix de revente, coût majoré, TNMM, partage de bénéfices
-
-[ÉTABLISSEMENT STABLE]
-- Article 209-I CGI + conventions bilatérales
-- Critères: installation fixe, activité > 12 mois, pouvoir de conclure contrats
-- Agent dépendant = ES si conclut habituellement des contrats
-
-[CONVENTIONS FISCALES]
-- France-Allemagne: retenue dividendes 15% (0% si >10% détention)
-- France-UK: retenue dividendes 15% (mais UK applique 0% domestique)
-- France-Singapour: retenue dividendes 15% (5% si >10% détention)
-`;
+  const response = await fetch(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openaiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: planPrompt }],
+      response_format: { type: 'json_object' },
+      temperature: 0.3,
+      max_tokens: 1000,
+    }),
+  });
+  
+  const data = await response.json();
+  return JSON.parse(data.choices?.[0]?.message?.content || '{"searches":[]}');
+}
 
 
 app.post('/ask', async (req, res) => {
   const { question } = req.body;
   if (!question) return res.status(400).json({ error: 'Question required' });
   
-  console.log('\n🤖 ATLAS /ask - Question:', question);
+  console.log('\n🤖 ATLAS AGENT - Question:', question);
   const startTime = Date.now();
   
   try {
-    const year = new Date().getFullYear();
-    const b = await getBrowser();
+    // ============================================
+    // ÉTAPE 1: PLANIFICATION - L'agent analyse et planifie ses recherches
+    // ============================================
+    console.log('🧠 Étape 1: Planification des recherches...');
     
-    // PHASE 1: Recherches PARALLÈLES (plusieurs requêtes en même temps)
-    console.log('🔍 Phase 1: Recherches parallèles...');
+    const plan = await agentReasoning(question, OPENAI_API_KEY);
+    console.log(`   📋 Plan: ${plan.analysis || 'Analyse en cours'}`);
+    console.log(`   🔍 ${plan.searches?.length || 0} recherches planifiées`);
     
-    // Extraire les mots-clés fiscaux de la question
-    const fiscalKeywords = [
-      'prix de transfert', 'transfer pricing',
-      'retenue à la source', 'withholding tax',
-      'établissement stable', 'permanent establishment',
-      'ATAD', 'anti-abus',
-      'dividendes', 'holding',
-      'convention fiscale', 'double imposition'
-    ];
+    // ============================================
+    // ÉTAPE 2: RECHERCHES WEB PARALLÈLES
+    // ============================================
+    console.log('🌐 Étape 2: Recherches web parallèles...');
     
-    // Générer des requêtes ciblées
-    const queries = [`${question.substring(0, 100)} ${year}`];
+    const searches = plan.searches || [question];
+    const searchPromises = searches.slice(0, 5).map(q => webSearch(q + ' site:gouv.fr OR site:bofip.impots.gouv.fr', 3));
+    const searchResults = await Promise.all(searchPromises);
     
-    // Ajouter des requêtes pour chaque mot-clé trouvé
-    for (const kw of fiscalKeywords) {
-      if (question.toLowerCase().includes(kw.split(' ')[0])) {
-        queries.push(`${kw} France Allemagne ${year}`);
-      }
-    }
-    
-    // Limiter à 4 requêtes max
-    const limitedQueries = queries.slice(0, 4);
-    console.log(`   📝 ${limitedQueries.length} requêtes générées`);
-    
-    // Fonction de recherche
-    const searchQuery = async (query) => {
-      const page = await b.newPage();
-      try {
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        await page.setViewport({ width: 1280, height: 800 });
-        
-        const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&ia=web`;
-        await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 20000 });
-        await page.waitForSelector('[data-testid="result"]', { timeout: 10000 }).catch(() => {});
-        await new Promise(r => setTimeout(r, 1500));
-        
-        const results = await page.evaluate(() => {
-          const items = [];
-          document.querySelectorAll('[data-testid="result"]').forEach((el) => {
-            const link = el.querySelector('a[data-testid="result-title-a"]');
-            const snippet = el.querySelector('[data-result="snippet"]');
-            if (link?.href?.startsWith('http')) {
-              items.push({
-                title: link.textContent || '',
-                url: link.href,
-                snippet: snippet?.textContent || '',
-                source: new URL(link.href).hostname.replace('www.', '')
-              });
-            }
-          });
-          return items;
-        });
-        
-        await page.close();
-        return results;
-      } catch (e) {
-        await page.close().catch(() => {});
-        return [];
-      }
-    };
-    
-    // Lancer toutes les recherches en parallèle
-    const searchResults = await Promise.all(limitedQueries.map(searchQuery));
+    // Dédupliquer les résultats
     const allResults = searchResults.flat();
+    const seenUrls = new Set();
+    const uniqueResults = allResults.filter(r => {
+      if (seenUrls.has(r.url)) return false;
+      seenUrls.add(r.url);
+      return true;
+    }).slice(0, 8);
     
-    // Filtrer whitelist et dédupliquer
-    const filtered = filterResults(allResults);
-    const unique = filtered.slice(0, 8);
-    console.log(`   📊 ${allResults.length} bruts → ${filtered.length} whitelist → ${unique.length} uniques`);
+    console.log(`   📊 ${allResults.length} résultats → ${uniqueResults.length} uniques`);
     
-    // PHASE 2: Extraction PARALLÈLE (toutes les pages en même temps)
-    console.log('🔍 Phase 2: Extraction parallèle...');
+    // ============================================
+    // ÉTAPE 3: EXTRACTION DU CONTENU DES PAGES
+    // ============================================
+    console.log('📄 Étape 3: Extraction du contenu...');
     
-    const extractPage = async (result) => {
-      const page = await b.newPage();
-      try {
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        await page.goto(result.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        
-        const data = await page.evaluate(() => {
-          let date = null;
-          const metaDate = document.querySelector('meta[property="article:published_time"], meta[name="date"]');
-          if (metaDate) date = metaDate.getAttribute('content');
-          if (!date) {
-            const timeEl = document.querySelector('time[datetime]');
-            if (timeEl) date = timeEl.getAttribute('datetime');
-          }
-          
-          document.querySelectorAll('script, style, nav, footer, header, aside').forEach(el => el.remove());
-          const main = document.querySelector('main, article, .content') || document.body;
-          const content = main.textContent.replace(/\s+/g, ' ').trim().substring(0, 8000);
-          
-          return { title: document.title, content, date };
-        });
-        
-        await page.close();
-        
-        if (!data.title.includes('Just a moment') && data.content.length > 300) {
-          return {
-            title: data.title,
-            url: result.url,
-            source: result.source,
-            date: data.date,
-            content: data.content,
-            isRecent: data.date && new Date(data.date) > new Date(Date.now() - 365*24*60*60*1000)
-          };
-        }
-      } catch (e) {
-        await page.close().catch(() => {});
+    const extractPromises = uniqueResults.map(async (r) => {
+      const content = await extractContent(r.url, 4000);
+      if (content.length > 200) {
+        return {
+          title: r.title,
+          url: r.url,
+          source: new URL(r.url).hostname.replace('www.', ''),
+          snippet: r.snippet,
+          content,
+          date: null,
+          isRecent: false
+        };
       }
       return null;
-    };
+    });
     
-    // Lancer toutes les extractions en parallèle
-    const extractResults = await Promise.all(unique.map(extractPage));
-    const sources = extractResults.filter(Boolean);
-    console.log(`   ✅ ${sources.length}/${unique.length} pages extraites en parallèle`);
+    const extractedResults = await Promise.all(extractPromises);
+    const sources = extractedResults.filter(Boolean);
+    console.log(`   ✅ ${sources.length}/${uniqueResults.length} pages extraites`);
     
     if (sources.length === 0) {
       return res.json({
@@ -847,56 +829,33 @@ app.post('/ask', async (req, res) => {
       });
     }
     
-    // PHASE 3: Synthèse Groq
-    console.log('🔍 Phase 3: Groq...');
+    // ============================================
+    // ÉTAPE 4: SYNTHÈSE PAR L'IA
+    // ============================================
+    console.log('🤖 Étape 4: Synthèse IA...');
     
     const context = sources.map((s, i) => 
-      `[Source ${i+1}: ${s.title}] (${s.date || 'date inconnue'})\n${s.url}\n${s.content.substring(0, 2500)}`
+      `[Source ${i+1}: ${s.title}]\n${s.url}\n${s.content.substring(0, 3000)}`
     ).join('\n\n---\n\n');
     
-    // Détecter la complexité de la question
-    const complexityIndicators = [
-      'holding', 'filiale', 'prix de transfert', 'établissement stable',
-      'convention', 'retenue', 'ATAD', 'anti-abus', 'restructuration',
-      'fusion', 'apport', 'international', 'transfrontalier'
-    ];
-    const isComplex = complexityIndicators.some(ind => question.toLowerCase().includes(ind));
-    
-    const prompt = `Tu es un EXPERT FISCAL FRANÇAIS de niveau directeur en cabinet Big 4.
+    const prompt = `Tu es un EXPERT FISCAL FRANÇAIS. Réponds de manière PRÉCISE et CONCRÈTE.
 
-BASE DE CONNAISSANCES FISCALES (PRIORITAIRE - utilise ces règles en premier):
-${FISCAL_KNOWLEDGE}
-
-SOURCES WEB RÉCENTES (complément d'information):
+SOURCES WEB (utilise ces informations):
 ${context}
 
-MÉTHODE DE RÉPONSE:
+RÈGLES DE RÉPONSE:
+1. Réponds de manière FLUIDE (pas de titres "QUESTION 1:", "RÉGIME:", etc.)
+2. Cite les ARTICLES DE LOI dans le texte: "...exonérés (article 262 ter I CGI)..."
+3. Donne les TAUX EXACTS: "15%", "25%", "0%"
+4. Fais les CALCULS si des montants sont donnés
+5. Ne dis JAMAIS "il convient de", "consultez", "vérifiez"
 
-1. ANALYSE LA QUESTION
-Identifie chaque sous-question et les pays/entités impliqués.
-
-2. APPLIQUE LES RÈGLES FISCALES
-Pour chaque point, utilise d'abord la BASE DE CONNAISSANCES ci-dessus.
-Les sources web servent uniquement à confirmer ou compléter.
-
-3. RÉDIGE UNE RÉPONSE EXPERTE
-- Style fluide et professionnel (pas de titres "QUESTION 1:", "RÉGIME:", etc.)
-- Intègre les articles de loi dans le texte: "...exonérés (article 262 ter I CGI)..."
-- Donne les taux exacts: "15%", "25%", "0%"
-- Fais les calculs: "Sur 2M€ de dividendes: 2 000 000€ × 5% = 100 000€ de quote-part"
-
-ERREURS À ÉVITER ABSOLUMENT:
-- Ne dis JAMAIS que la directive mère-fille UE s'applique au UK (FAUX depuis Brexit)
-- Ne dis JAMAIS que les services UK→France sont exonérés (c'est AUTOLIQUIDATION)
-- Ne dis JAMAIS "il convient de vérifier" ou "consultez un spécialiste"
-- Ne confonds JAMAIS régime français (article 145 CGI) et directive UE
-
-QUESTION DU CLIENT:
+QUESTION:
 ${question}
 
 Réponds en JSON:
 {
-  "answer": "Ta réponse experte complète",
+  "answer": "Ta réponse experte fluide et complète",
   "confidence": "high|medium|low"
 }`;
 
@@ -960,14 +919,14 @@ Réponds en JSON:
     
     res.json({
       answer,
-      sources: sources.map(s => ({ title: s.title, url: s.url, source: s.source, date: s.date, isRecent: s.isRecent })),
+      sources: sources.map(s => ({ title: s.title, url: s.url, source: s.source })),
       confidence: parsed.confidence || 'medium',
-      keyRates,
-      keyArticles,
-      risks,
-      calculations,
-      isComplex,
-      stats: { sourcesFound: unique.length, sourcesAnalyzed: sources.length, timeMs: totalTime }
+      stats: { 
+        searchQueries: searches.length,
+        sourcesFound: uniqueResults.length, 
+        sourcesAnalyzed: sources.length, 
+        timeMs: totalTime 
+      }
     });
     
   } catch (error) {
