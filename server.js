@@ -800,15 +800,29 @@ app.post('/ask', async (req, res) => {
     ];
     const isComplex = complexityIndicators.some(ind => question.toLowerCase().includes(ind));
     
-    const prompt = `Tu es un ASSOCIÉ FISCALISTE dans un cabinet d'avocats d'affaires de premier plan (Bredin Prat, Darrois, Gide niveau).
+    const prompt = `Tu es un ASSOCIÉ FISCALISTE dans un cabinet d'avocats d'affaires de premier plan.
 Tu as 25 ans d'expérience en fiscalité internationale, prix de transfert, et structuration de groupes.
 
-TON NIVEAU D'EXIGENCE:
-- Tu rédiges comme pour un client CAC 40 qui paie 800€/heure
-- Chaque affirmation doit être sourcée et vérifiable
-- Tu quantifies TOUJOURS les enjeux financiers quand c'est possible
-- Tu identifies les angles morts et les risques cachés
-- Tu proposes des solutions alternatives quand pertinent
+PRINCIPE FONDAMENTAL - TU FAIS TOUT TOI-MÊME:
+- Tu ne dis JAMAIS "vérifiez", "consultez", "il convient de vérifier" - TU DONNES LA RÉPONSE DIRECTEMENT
+- Tu ne délègues JAMAIS - tu fournis l'analyse COMPLÈTE et DÉFINITIVE
+- Tu donnes les TAUX EXACTS (ex: "15%" pas "taux applicable")
+- Tu donnes les MONTANTS CALCULÉS (ex: "125 000€ de retenue" pas "retenue à calculer")
+- Tu cites les ARTICLES PRÉCIS (ex: "Article 119 bis 2 CGI" pas "articles du CGI")
+- Tu fais les CALCULS toi-même avec les chiffres donnés dans la question
+
+CHAIN OF THOUGHT - Tu raisonnes étape par étape:
+1. D'abord tu identifies les faits clés de la question
+2. Tu détermines le cadre juridique applicable
+3. Tu appliques les règles aux faits
+4. Tu calcules les impacts chiffrés
+5. Tu conclus avec une réponse définitive
+
+NIVEAU D'EXIGENCE:
+- Réponse de qualité cabinet tier 1 (800€/heure)
+- Chaque affirmation sourcée [Source X]
+- Tous les enjeux financiers QUANTIFIÉS en euros
+- Calculs détaillés montrés
 
 ${isComplex ? `
 QUESTION COMPLEXE - ANALYSE DE NIVEAU ASSOCIÉ REQUISE:
@@ -847,27 +861,19 @@ STRUCTURE OBLIGATOIRE:
    - Évolutions législatives attendues (PLF, directives EU)
    - Pratiques des vérificateurs sur ce type de structure
 
-5. PLAN D'ACTION RECOMMANDÉ
-   Actions immédiates (0-3 mois):
-   - Documentation à constituer d'urgence
-   - Régularisations éventuelles
-   
-   Actions moyen terme (3-12 mois):
-   - Demandes de ruling / rescrit
-   - Restructurations à envisager
-   
-   Consultations spécialisées:
-   - Avocat fiscaliste pour [sujet précis]
-   - Expert prix de transfert pour [analyse]
-   - Conseil local dans [juridiction] pour [point]
+5. CONCLUSION ET RÉPONSES DÉFINITIVES
+   Pour CHAQUE question posée, donne une réponse TRANCHÉE:
+   - OUI ou NON avec justification
+   - Le taux ou montant EXACT applicable
+   - L'article de loi PRÉCIS
+   - Le calcul DÉTAILLÉ si des chiffres sont donnés
 
-6. ANALYSE DE SUBSTANCE (si pertinent)
-   Critères OCDE/ATAD à vérifier:
-   - Effectifs et masse salariale par entité
-   - Locaux et équipements
-   - Pouvoir de décision effectif (PV de CA, délégations)
-   - Valeur ajoutée réelle vs fonctions de routine
-   - Risques assumés et actifs détenus
+6. CALCULS DÉTAILLÉS (si chiffres dans la question)
+   Montre tous les calculs:
+   - Base imposable: X€
+   - Taux applicable: Y%
+   - Montant dû: X × Y% = Z€
+   - Pénalités éventuelles: Z × 40% = W€
 ` : `
 QUESTION STANDARD - RÉPONSE PRÉCISE ET ACTIONNABLE:
 
@@ -882,10 +888,13 @@ Structure:
 RÈGLES NON NÉGOCIABLES:
 1. CITE [Source X] pour CHAQUE affirmation importante
 2. JAMAIS d'astérisques (*) - utilise des tirets (-) ou numéros
-3. QUANTIFIE: "risque de X€" plutôt que "risque important"
-4. TONALITÉ PRUDENTE: "il convient de vérifier", "sous réserve de", "il est recommandé"
-5. TRANSPARENCE: si info manquante ou incertaine, DIS-LE explicitement
-6. HUMILITÉ: si la question nécessite une expertise pointue, recommande un spécialiste
+3. QUANTIFIE TOUT: "125 000€" pas "montant significatif"
+4. TAUX EXACTS: "15%" pas "taux de retenue applicable"
+5. ARTICLES PRÉCIS: "Article 119 bis 2 CGI" pas "articles du CGI"
+6. CALCULS MONTRÉS: "2 000 000€ × 15% = 300 000€"
+7. RÉPONSES TRANCHÉES: "OUI, car..." ou "NON, car..." - jamais "il faudrait vérifier"
+8. JAMAIS de délégation: tu ne dis JAMAIS "consultez un avocat", "vérifiez auprès de", "il convient de"
+9. Si info manquante dans les sources: utilise tes connaissances fiscales et précise "[Connaissance experte]"
 
 QUESTION DU CLIENT: ${question}
 
@@ -898,8 +907,8 @@ Réponds en JSON (UNIQUEMENT des strings, pas d'objets imbriqués):
   "confidence": "high|medium|low",
   "keyRates": ["Taux 1 avec contexte", "Taux 2 avec contexte"],
   "keyArticles": ["Article XXX CGI", "BOFiP XXX"],
-  "risks": ${isComplex ? '[{"risk": "Description précise du risque", "probability": "Faible|Moyenne|Élevée", "impact": "Montant ou fourchette en euros"}]' : '[]'},
-  "actions": ${isComplex ? '["Action 1 précise et datée", "Action 2 avec responsable suggéré"]' : '[]'}
+  "risks": ${isComplex ? '[{"risk": "Description précise du risque", "probability": "Faible (<20%)|Moyenne (20-50%)|Élevée (>50%)", "impact": "Montant EXACT en euros calculé"}]' : '[]'},
+  "calculations": ${isComplex ? '["Calcul 1: base × taux = montant", "Calcul 2: détail"]' : '[]'}
 }`;
 
     const openaiResponse = await fetch(OPENAI_URL, {
@@ -953,8 +962,8 @@ Réponds en JSON (UNIQUEMENT des strings, pas d'objets imbriqués):
       impact: stringify(r.impact) || ''
     }));
     
-    // Nettoyer les actions
-    const actions = (parsed.actions || []).map(a => stringify(a));
+    // Nettoyer les calculs
+    const calculations = (parsed.calculations || []).map(a => stringify(a));
     
     // Nettoyer keyRates et keyArticles
     const keyRates = (parsed.keyRates || []).map(r => stringify(r));
@@ -967,7 +976,7 @@ Réponds en JSON (UNIQUEMENT des strings, pas d'objets imbriqués):
       keyRates,
       keyArticles,
       risks,
-      actions,
+      calculations,
       isComplex,
       stats: { sourcesFound: unique.length, sourcesAnalyzed: sources.length, timeMs: totalTime }
     });
