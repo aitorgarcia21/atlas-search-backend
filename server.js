@@ -643,7 +643,69 @@ app.post('/analyze-sources', async (req, res) => {
 // ============================================================================
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+
+// Base de connaissances fiscales françaises
+const FISCAL_KNOWLEDGE = `
+=== RÈGLES FISCALES FRANÇAISES 2024-2025 ===
+
+[IMPÔT SUR LES SOCIÉTÉS]
+- Taux normal IS: 25% (article 219-I CGI)
+- Taux PME: 15% jusqu'à 42 500€ de bénéfice (CA < 10M€)
+- Contribution sociale: 3,3% sur IS > 763 000€
+
+[TVA]
+- Taux normal: 20%
+- Taux intermédiaire: 10%
+- Taux réduit: 5,5%
+- Taux super-réduit: 2,1%
+
+[TVA INTERNATIONALE]
+- LIC (Livraison Intracommunautaire): exonération article 262 ter I CGI
+- AIC (Acquisition Intracommunautaire): autoliquidation
+- Services B2B UE: autoliquidation pays du preneur (article 259-1° CGI)
+- Services B2B pays tiers vers France: autoliquidation en France (article 283-2 CGI)
+- Importations: TVA à l'importation (article 293 A CGI)
+
+[BREXIT - RÈGLES UK DEPUIS 01/01/2021]
+- UK = PAYS TIERS (hors UE)
+- Irlande du Nord = marché unique UE pour BIENS uniquement (Protocole Windsor)
+- Code TVA Irlande du Nord: XI (pas GB)
+- Directive mère-fille UE: NE S'APPLIQUE PLUS France-UK
+- Directive ATAD: NE S'APPLIQUE PLUS au UK
+- Services UK→France B2B: AUTOLIQUIDATION en France (pas exonération!)
+
+[RÉGIME MÈRE-FILLE FRANÇAIS]
+- Article 145 CGI: exonération dividendes reçus
+- Conditions: détention ≥5%, conservation 2 ans, engagement
+- Quote-part de frais: 5% réintégrée (donc exonération 95%)
+- S'applique aux dividendes de filiales UE ET pays tiers (dont UK)
+
+[RETENUES À LA SOURCE]
+- Dividendes FR→étranger: 25% (réduit par conventions)
+- Dividendes UK→France: 0% (législation UK domestique, pas besoin de convention)
+- Intérêts FR→étranger: 0% en général
+- Redevances FR→étranger: 25% (réduit par conventions)
+
+[PRIX DE TRANSFERT]
+- Article 57 CGI: principe de pleine concurrence
+- Documentation obligatoire si: CA ≥ 400M€ ou actifs ≥ 400M€ ou détention ≥50% entité étrangère > seuils
+- Déclaration 2257: obligatoire si transactions > 100 000€ par catégorie
+- Méthodes OCDE: CUP, prix de revente, coût majoré, TNMM, partage de bénéfices
+
+[ÉTABLISSEMENT STABLE]
+- Article 209-I CGI + conventions bilatérales
+- Critères: installation fixe, activité > 12 mois, pouvoir de conclure contrats
+- Agent dépendant = ES si conclut habituellement des contrats
+
+[CONVENTIONS FISCALES]
+- France-Allemagne: retenue dividendes 15% (0% si >10% détention)
+- France-UK: retenue dividendes 15% (mais UK applique 0% domestique)
+- France-Singapour: retenue dividendes 15% (5% si >10% détention)
+`;
+
 
 app.post('/ask', async (req, res) => {
   const { question } = req.body;
@@ -800,58 +862,41 @@ app.post('/ask', async (req, res) => {
     ];
     const isComplex = complexityIndicators.some(ind => question.toLowerCase().includes(ind));
     
-    const prompt = `Tu es un EXPERT FISCAL FRANÇAIS spécialisé en fiscalité internationale.
+    const prompt = `Tu es un EXPERT FISCAL FRANÇAIS de niveau directeur en cabinet Big 4.
 
-CONNAISSANCES OBLIGATOIRES À APPLIQUER:
+BASE DE CONNAISSANCES FISCALES (PRIORITAIRE - utilise ces règles en premier):
+${FISCAL_KNOWLEDGE}
 
-=== BREXIT - RÈGLES POST-2021 ===
-- UK = PAYS TIERS (hors UE) depuis le 1er janvier 2021
-- Irlande du Nord = reste dans le MARCHÉ UNIQUE pour les BIENS uniquement (Protocole)
-- Directive mère-fille UE (2011/96/UE) : NE S'APPLIQUE PLUS entre France et UK
-- Directive ATAD : NE S'APPLIQUE PLUS au UK
-
-=== TVA SERVICES B2B AVEC PAYS TIERS ===
-- Services B2B depuis pays tiers vers France : TVA due EN FRANCE par AUTOLIQUIDATION
-- Le preneur français autoliquide sur sa CA3 (ligne 2A ou 02)
-- Article 283-2 CGI : redevable = preneur assujetti en France
-- Ce n'est PAS une exonération, c'est un REVERSE CHARGE
-
-=== TVA BIENS IRLANDE DU NORD ===
-- Livraisons FR → Irlande du Nord : exonération LIC (article 262 ter I CGI)
-- Irlande du Nord a un code TVA commençant par XI (pas GB)
-- Acquisitions depuis Irlande du Nord : acquisition intracommunautaire
-
-=== DIVIDENDES UK → FRANCE ===
-- UK : 0% de retenue à la source sur dividendes (législation domestique UK, pas besoin de convention)
-- France : régime mère-fille FRANÇAIS (article 145 CGI) applicable si conditions remplies
-- Conditions : détention 5% minimum, 2 ans, engagement de conservation
-- Exonération 95% en France (quote-part de frais 5%)
-- La directive mère-fille UE ne s'applique PAS (UK hors UE)
-
-=== PRIX DE TRANSFERT POST-BREXIT ===
-- UK = pays tiers = documentation TP obligatoire (article 57 CGI)
-- Seuils documentation : 400M€ CA ou 50M€ actifs
-- Risque accru de contrôle sur flux France-UK
-
-=== ÉTABLISSEMENT STABLE ===
-- Définition : article 209-I CGI + conventions bilatérales
-- Critères : installation fixe d'affaires, activité > 12 mois, pouvoir de conclure des contrats
-
-RÈGLES DE RÉDACTION:
-1. Réponse fluide sans titres visibles
-2. Intègre articles et taux dans les phrases
-3. Fais les calculs avec les montants donnés
-4. JAMAIS de "il convient de", "consultez", "selon les cas"
-
-QUESTION:
-${question}
-
-SOURCES (${sources.length}):
+SOURCES WEB RÉCENTES (complément d'information):
 ${context}
+
+MÉTHODE DE RÉPONSE:
+
+1. ANALYSE LA QUESTION
+Identifie chaque sous-question et les pays/entités impliqués.
+
+2. APPLIQUE LES RÈGLES FISCALES
+Pour chaque point, utilise d'abord la BASE DE CONNAISSANCES ci-dessus.
+Les sources web servent uniquement à confirmer ou compléter.
+
+3. RÉDIGE UNE RÉPONSE EXPERTE
+- Style fluide et professionnel (pas de titres "QUESTION 1:", "RÉGIME:", etc.)
+- Intègre les articles de loi dans le texte: "...exonérés (article 262 ter I CGI)..."
+- Donne les taux exacts: "15%", "25%", "0%"
+- Fais les calculs: "Sur 2M€ de dividendes: 2 000 000€ × 5% = 100 000€ de quote-part"
+
+ERREURS À ÉVITER ABSOLUMENT:
+- Ne dis JAMAIS que la directive mère-fille UE s'applique au UK (FAUX depuis Brexit)
+- Ne dis JAMAIS que les services UK→France sont exonérés (c'est AUTOLIQUIDATION)
+- Ne dis JAMAIS "il convient de vérifier" ou "consultez un spécialiste"
+- Ne confonds JAMAIS régime français (article 145 CGI) et directive UE
+
+QUESTION DU CLIENT:
+${question}
 
 Réponds en JSON:
 {
-  "answer": "Ta réponse experte avec les règles ci-dessus appliquées correctement",
+  "answer": "Ta réponse experte complète",
   "confidence": "high|medium|low"
 }`;
 
